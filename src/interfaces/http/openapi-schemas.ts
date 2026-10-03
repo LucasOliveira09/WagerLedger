@@ -73,9 +73,10 @@ export const openApiSchemas: Record<string, SchemaObject> = {
   Transaction: {
     type: 'object', required: ['id', 'providerId', 'externalTransactionId', 'walletId', 'playerId', 'roundId', 'gameId', 'kind', 'money', 'status', 'referenceExternalTransactionId', 'referenceTransactionId', 'failureCode', 'createdAt', 'processedAt'],
     properties: { id: { ...uuidSchema, example: sampleIds.transactionId }, ...wagerProperties,
+      providerId: text('Identidade do provedor; OPENING utiliza o provedor interno reservado __internal__.', 100, 'provider-demo'),
       kind: { type: 'string', enum: ['OPENING', 'BET', 'WIN', 'LOSS', 'REFUND', 'ROLLBACK'] }, money: schemaRef('Money'), status: statuses,
       referenceExternalTransactionId: { type: 'string', nullable: true }, referenceTransactionId: { ...uuidSchema, nullable: true },
-      failureCode: { ...failureCodes, nullable: true }, createdAt: { type: 'string', format: 'date-time' }, processedAt: { type: 'string', format: 'date-time', nullable: true } },
+      failureCode: { ...failureCodes, enum: [...failureCodes.enum!, null], nullable: true }, createdAt: { type: 'string', format: 'date-time' }, processedAt: { type: 'string', format: 'date-time', nullable: true } },
   },
   LedgerEntry: {
     type: 'object', required: ['id', 'walletId', 'transactionId', 'direction', 'money', 'balanceBefore', 'balanceAfter', 'sequence', 'createdAt'],

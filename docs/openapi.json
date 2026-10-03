@@ -656,8 +656,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
-            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade do provedor; OPENING utiliza o provedor interno reservado __internal__.",
             "example": "provider-demo"
           },
           "externalTransactionId": {
@@ -744,7 +744,8 @@
               "REVERSAL_ALREADY_APPLIED",
               "AMOUNT_MISMATCH",
               "AMOUNT_OUT_OF_RANGE",
-              "INFRASTRUCTURE_PERMANENT_FAILURE"
+              "INFRASTRUCTURE_PERMANENT_FAILURE",
+              null
             ],
             "description": "Motivo estável da rejeição/falha; presente apenas quando aplicável.",
             "nullable": true
