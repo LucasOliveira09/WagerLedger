@@ -4,13 +4,14 @@ import { Migration001 } from './migrations/001-wallet-ledger.js';
 import { WalletRecord } from './wallet-mapping.js';
 import { TransactionRecord } from './transaction-mapping.js';
 import { Migration002 } from './migrations/002-transactions-messaging.js';
+import { Migration003 } from './migrations/003-financial-invariants.js';
 
 export const localMigrationUrl = 'postgresql://wagerledger:local-development-only@127.0.0.1:55432/wagerledger';
 export const localDatabaseUrl = 'postgresql://wagerledger_app:local-development-only@127.0.0.1:55432/wagerledger';
 export function ormOptions(clientUrl = process.env.DATABASE_URL ?? localDatabaseUrl) {
   return defineConfig({
     clientUrl, entities: [WalletRecord, TransactionRecord], extensions: [Migrator],
-    migrations: { migrationsList: [Migration001, Migration002], snapshot: false },
+    migrations: { migrationsList: [Migration001, Migration002, Migration003], snapshot: false },
     pool: { min: 0, max: 10 },
     driverOptions: { connectionTimeoutMillis: 2000 },
   });
