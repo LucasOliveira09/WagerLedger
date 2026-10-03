@@ -1,0 +1,8 @@
+# Documentos e artefatos possuem seus próprios formatos.
+docs/
+prd/
+readme_da_vaga/
+artifacts/
+dist/
+node_modules/
+bun.lock

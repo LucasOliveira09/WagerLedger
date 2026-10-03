@@ -12,6 +12,8 @@
     "build": "bun x --bun tsc -p tsconfig.build.json",
     "typecheck": "bun x --bun tsc --noEmit",
     "lint": "bun x --bun eslint .",
+    "format": "bun x --bun prettier --write src tests scripts \"*.js\" \"*.json\"",
+    "format:check": "bun x --bun prettier --check src tests scripts \"*.js\" \"*.json\"",
     "start:dev": "bun --watch src/main.ts",
     "start:api": "bun src/main.ts",
     "start:worker": "bun src/main-worker.ts",
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@types/bun": "1.4.2",
     "eslint": "10.12.0",
+    "prettier": "3.9.9",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.0"
   }
