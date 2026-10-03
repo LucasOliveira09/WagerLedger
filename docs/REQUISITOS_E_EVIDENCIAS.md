@@ -65,6 +65,7 @@ o alcance da comprovação depende dos cenários executados.
 | Encerramento drena operações em andamento | WorkerLifecycle e handlers dos pontos de entrada | `unit/worker-lifecycle.test.ts`, `recovery/shutdown.test.ts` |
 | JSON sem payload financeiro, métricas e health | `infrastructure/observability/` | `unit/telemetry.test.ts`, `integration/observability.test.ts`, `financial-telemetry.test.ts` |
 | Swagger/Postman úteis e sincronizados | `interfaces/http/swagger.ts`, schemas e fontes dos scripts | `unit/api-documentation.test.ts`, `integration/swagger.test.ts`; execução Newman registrada |
+| Experimento opcional de carga com auditoria | `tests/load/`, comando `test:load` | Testes unitários do gerador/monitor e integração `load-*.test.ts`; [resultados locais](LOAD_RESULTS.md) |
 
 O conflito real de key com payload divergente é exercitado em integração;
 em unidade, verificamos a distinção dos hashes. Essa distribuição é a cobertura
@@ -81,6 +82,9 @@ atual, embora o enunciado também cite idempotência entre os cenários unitári
   a mesma carteira, verificando independência da ordenação FIFO.
 - **Recuperação:** interrupções controladas antes/depois do envio e entre
   commit/ack. Verifica se outro processo retoma sem outro movimento financeiro.
+- **Carga opcional:** concorrência HTTP fixa com banco e publicação reais,
+  taxas/percentis e auditoria final. [Metodologia](LOAD_TESTING.md); não prova
+  capacidade sustentada ou uma meta de chegada fixa.
 
 O teste de duplicação da publicação usa fila standard para observar a duplicata
 sem a janela de deduplicação FIFO escondê-la. No teste gracioso em Windows,
@@ -104,7 +108,7 @@ foi reexecutada a cada alteração de documentação.
 | Visibilidade SQS | 30 segundos por padrão, sem heartbeat de extensão; entrega concorrente continua possível |
 | Retenção | Sem expurgo automático de inbox/outbox publicada |
 | Métricas | Em memória por processo; sem servidor Prometheus/collector/dashboard incluído |
-| Capacidade | Sem benchmark ou meta de throughput demonstrada |
+| Capacidade | Experimento local registrado em LOAD_RESULTS; sem meta de throughput em produção demonstrada |
 | Contabilidade | Ledger por carteira; não é sistema de partidas dobradas |
 | Moedas | Validação e separação por moeda; sem câmbio |
 | Falha de banco | Rollback protege o pacote; auditoria FAILED depende de conseguir gravar depois |

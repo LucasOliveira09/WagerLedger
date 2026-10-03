@@ -283,7 +283,8 @@ Os loops deixam de iniciar novas iterações. API tem shutdown hooks do NestJS.
 Não há extensão periódica da visibilidade SQS nesta versão. Uma operação muito
 longa pode receber entrega concorrente; lock e idempotência protegem os efeitos.
 Métricas são locais ao processo e reiniciam com ele. Inbox e eventos publicados
-não têm expurgo automático. Não houve teste de carga ou deployment AWS.
+não têm expurgo automático. Não houve deployment AWS. O experimento de carga
+local está descrito em [LOAD_TESTING.md](LOAD_TESTING.md).
 
 Os testes de unidade demonstram regras dos objetos. Integração demonstra SQL/SQS
 locais. Concorrência e recuperação demonstram processos reais e falhas controladas.

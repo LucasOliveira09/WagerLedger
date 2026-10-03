@@ -109,6 +109,27 @@ para esta extensão documental; seus resultados anteriores continuam sendo
 as evidências históricas descritas acima. Não houve inicialização ou parada
 de serviços nesta etapa.
 
+## Experimento opcional de carga
+
+A extensão adicionou `bun run test:load`, com gerador HTTP, API e publisher em
+processos distintos e recursos temporários reais. Os testes pequenos verificam
+limites/configuração, percentis, contabilização de erros, timeout/cancelamento,
+subprocessos, exclusão do aquecimento e auditoria dos eventos. Uma regressão
+remove eventos e outra duplica seus tipos para verificar que a auditoria reprova.
+
+Foram executados os cenários de uma carteira disputada e 16 carteiras independentes,
+com oito clientes por 10 segundos, antes e depois de preparar 100 BETs por carteira.
+Os quatro cenários aprovaram respostas, saldo/ledger, versão e eventos, sem erros
+ou pendências finais. Os [resultados locais](LOAD_RESULTS.md) registram taxas,
+percentis, locks e publicação; a [metodologia](LOAD_TESTING.md) explica o alcance.
+
+Após a implementação, `bun test` passou com **76 testes, 454 assertions, zero
+falhas e 49 arquivos**, em 26,85 segundos. Lint, checagem de tipos e build também
+passaram. O benchmark completo é opcional e não faz parte desse tempo da suíte.
+A revisão independente identificou a necessidade de auditar eventos ausentes
+e excluir lag residual do aquecimento; as correções receberam regressões e a
+revisão seguinte não encontrou bloqueadores materiais no harness.
+
 ## Limites das evidências
 
 - Concorrência usa processos do sistema operacional; morte abrupta encerra
@@ -120,7 +141,9 @@ de serviços nesta etapa.
   de teste deduplica por eventId; um consumidor externo deve fazer o mesmo.
 - Relógio controlado cobre limites/TTL do worker de referências. Não é necessário
   esperar 24 horas para demonstrar expiração.
-- Sem IdP por decisão de escopo; sem medição de carga, infraestrutura AWS,
+- A carga local usa modelo fechado e janelas curtas; não comprova capacidade
+  sustentada, chegada fixa de requisições ou desempenho na AWS.
+- Sem IdP por decisão de escopo; sem infraestrutura AWS,
   conversão cambial, partidas dobradas ou collector de traces.
 
 A revisão independente de código examinou constraints SQL, referências,

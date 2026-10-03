@@ -308,6 +308,8 @@ Liveness indica que o processo responde; readiness indica acesso às dependênci
 documentação sem PostgreSQL/SQS. `tests/integration/` usa banco e filas reais
 locais. `tests/concurrency/` provoca disputas de saldo/keys e três processos.
 `tests/recovery/` interrompe processos nas janelas críticas e verifica retomada.
+`tests/load/` coordena o experimento HTTP, coleta métricas e audita os dados;
+o roteiro e os limites estão em [LOAD_TESTING.md](LOAD_TESTING.md).
 
 Em `tests/support/`, `test-database.ts` cria/migra/remove bancos exclusivos;
 `test-queues.ts` faz isso com filas; `process-harness.ts` e `worker-process.ts`
@@ -324,5 +326,5 @@ Testar recuperação exige controlar exatamente onde a interrupção ocorre.
 6. Use Swagger/Postman seguindo [TESTING.md](TESTING.md) e confira ledger/reconciliação.
 
 Autenticação com IdP, implantação AWS/IAM, frontend, conversão cambial,
-partidas dobradas, dashboard, OpenTelemetry e teste de carga não fazem parte
+partidas dobradas, dashboard e OpenTelemetry não fazem parte
 da implementação atual. As evidências locais estão em [VALIDATION.md](VALIDATION.md).
