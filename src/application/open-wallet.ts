@@ -15,8 +15,12 @@ export class OpenWallet {
   async execute(input: OpenWalletInput, context: EventContext) {
     const initial = Money.from(input.initialBalance);
     const wallet = Wallet.open({ id: crypto.randomUUID(), playerId: input.playerId, initialBalance: initial });
+    // Não há carteira existente para bloquear: a unicidade jogador/moeda é garantida no banco.
     return this.uow.run(undefined, async session => {
       await session.addWallet(wallet);
+      // O saldo inicial positivo precisa de origem auditável: OPENING + crédito de sequência 1.
+      // Wallet.open já definiu esse saldo e versão; credit() aqui somaria o valor uma segunda vez.
+      // Com saldo zero não há movimentação, lançamento ou evento de abertura.
       if (initial.isPositive()) {
         const tx = WagerTransaction.create({ id: crypto.randomUUID(), providerId: '__internal__', externalTransactionId: wallet.id,
           idempotencyKey: `opening:${wallet.id}`, payloadHash: 'internal-opening', walletId: wallet.id, playerId: wallet.playerId,

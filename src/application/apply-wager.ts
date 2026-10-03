@@ -11,6 +11,7 @@ import type { FinancialSession } from './ports/financial-unit-of-work.js';
 import type { EventContext } from '../domain/events/integration-event.js';
 import type { SubmissionResult } from './transaction-result.js';
 
+// Pré-condição: usar uma FinancialSession com a carteira bloqueada pela unidade de trabalho.
 export async function applyWager(session: FinancialSession, tx: WagerTransaction, context: EventContext): Promise<SubmissionResult> {
   const wallet = session.wallet!;
   let reference: WagerTransaction | undefined;
@@ -19,6 +20,8 @@ export async function applyWager(session: FinancialSession, tx: WagerTransaction
   else if (tx.money.currency !== wallet.currency) tx.reject('CURRENCY_MISMATCH');
   else if (tx.referenceExternalTransactionId) {
     reference = (await session.transactionByExternal(tx.providerId, tx.referenceExternalTransactionId))?.transaction;
+    // Uma referência pode chegar depois da reversão. Persistimos a espera sem mover dinheiro;
+    // o worker de referências retomará a operação, sem depender de reenviar a mensagem SQS.
     if (!reference) { tx.markPendingReference(); awaitingReference = true; }
     else {
       const failure = referenceFailure(tx, reference);
@@ -30,6 +33,7 @@ export async function applyWager(session: FinancialSession, tx: WagerTransaction
   let entry: WalletLedgerEntry | undefined;
   if (!tx.isTerminal() && !awaitingReference) {
     try {
+      // LOSS registra o resultado da rodada, mas não duplica o débito já feito pela BET.
       if (tx.affectsBalance()) {
         const metadata = { id: crypto.randomUUID(), transactionId: tx.id };
         entry = tx.ledgerDirectionFor(reference) === 'DEBIT' ? wallet.debit(tx.money, metadata) : wallet.credit(tx.money, metadata);
@@ -46,12 +50,15 @@ export async function applyWager(session: FinancialSession, tx: WagerTransaction
     statusCode: tx.status === 'PENDING_REFERENCE' ? 202 : tx.status === 'REJECTED' ? 422 : 200,
     body: { transactionId: tx.id, status: tx.status, balance: wallet.balance.toJSON(), idempotentReplay: false, ...(tx.failureCode ? { failureCode: tx.failureCode } : {}) },
   };
+  // Rejeição de negócio também é um resultado persistido e reproduzível pela mesma key.
   await session.saveTransaction(tx, result);
   if (entry) { await session.saveWallet(wallet); await session.appendLedger(entry); }
   const event = tx.status === 'PENDING_REFERENCE' ? WagerTransactionPendingReference.from(tx, wallet, context)
     : tx.status === 'REJECTED' ? WagerTransactionRejected.from(tx, wallet, context) : WagerTransactionProcessed.from(tx, wallet, context);
   const messages = [OutboxMessage.enqueue(event)];
   if (entry) messages.push(OutboxMessage.enqueue(WalletBalanceChanged.from(wallet, entry, context)));
+  // Gravamos a intenção de publicar no banco. Enviar à SQS aqui criaria uma janela em que
+  // o evento poderia existir sem commit financeiro, ou o commit existir sem evento enviado.
   await session.appendOutbox(messages);
   return result;
 }

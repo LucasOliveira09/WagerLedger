@@ -26,6 +26,7 @@ export interface WagerInput {
   referenceExternalTransactionId?: string;
 }
 export interface InboxInput { messageId: string; consumerName: string; payloadHash: string }
+/** Entrada comum de HTTP e SQS: ambos passam pelas mesmas regras e pela mesma transação SQL. */
 export class ProcessWager {
   constructor(private readonly uow: FinancialUnitOfWork, private readonly telemetry: Telemetry = nullTelemetry) {}
   recordFailure(input: WagerInput, key: string, context: EventContext, transport: InboxInput): Promise<SubmissionResult> {
@@ -33,9 +34,13 @@ export class ProcessWager {
   }
   async execute(input: WagerInput, key: string, context: EventContext, transport?: InboxInput): Promise<SubmissionResult> {
     const money = Money.from(input.money);
+    // A key identifica a tentativa lógica; o hash prova que seu conteúdo de negócio não mudou.
+    // Correlação e metadados do transporte ficam fora desse hash.
     const hash = payloadHash(input);
     const started = performance.now();
     try {
+      // A sessão já contém a carteira bloqueada. Inbox, operação, saldo, ledger e outbox
+      // serão confirmados juntos; qualquer exceção antes do commit desfaz esse conjunto.
       const result = await this.uow.run(input.walletId, async session => {
         const inbox = transport ? await session.inbox(transport.messageId, transport.consumerName) : undefined;
         if (inbox && (!inbox.matchesPayload(transport!.payloadHash) || !inbox.isProcessed())) {
@@ -53,9 +58,12 @@ export class ProcessWager {
           received.markProcessed(new Date());
           await session.saveInbox(received);
         }
+        // O replay conserva a resposta original, mesmo depois de resolver uma referência.
+        // O consumidor precisa também do estado atual para encaminhar um FAILED à DLQ.
         const currentStatus = replay ? (await session.transactionByKey(key))!.transaction.status : result.body.status;
         return { ...result, currentStatus };
       });
+      // O retorno da unidade de trabalho significa que o commit já terminou.
       this.telemetry.count(
         result.body.idempotentReplay ? 'duplicates_total' : 'transactions_total',
         result.body.idempotentReplay ? { source: transport ? 'sqs' : 'http' } : { status: result.body.status },

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+// Ordena chaves recursivamente para JSONs com a mesma informação produzirem o mesmo hash.
+// A ordem de arrays continua significativa; propriedades undefined são omitidas.
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === 'object') {
