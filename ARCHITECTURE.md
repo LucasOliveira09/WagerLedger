@@ -106,6 +106,11 @@ mensagens recebidas após a solicitação e aguarda operações em andamento ant
 de fechar SQS/ORM. No Windows, o teste de encerramento gracioso usa IPC para
 acionar o handler SIGTERM; não é evidência de entrega de sinais POSIX pelo SO.
 Testes de morte abrupta usam encerramento real do subprocesso.
+Recuperação da outbox é testada também com destino standard para observar
+duplicação real sem depender da janela de deduplicação FIFO. Em ambos os casos,
+consumidores precisam deduplicar eventId. Publishers concorrentes não garantem
+ordem global de publicação; eventos de saldo carregam walletVersion para que
+consumidores detectem eventos antigos e evitem regressão de projeções.
 O harness utiliza [Bun.spawn e IPC](https://bun.com/docs/runtime/child-process).
 
 ## Contratos e leituras

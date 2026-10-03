@@ -250,7 +250,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T27 — Provar recuperação da outbox
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: processos mortos antes/depois do envio; outro publisher publicou todos os eventos; fila standard real recebeu duplicata após envio com eventId igual, deduplicada no consumidor de teste; saldo/ledger preservados.
 - Dependências: T24, T25.
 - Aceite: Morte antes de publicar não perde evento; morte após envio aceita duplicata com eventId igual; consumidor de teste deduplica.
 - Verificação: bun run test:recovery -- tests/recovery/outbox-crash.test.ts.
