@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-export interface Notice { event: string; pid: number; id?: string }
+export interface Notice { event: string; pid: number; id?: string; metricsUrl?: string }
 export async function eventually(check: () => Promise<boolean>, milliseconds = 15000): Promise<void> {
   const until = Date.now() + milliseconds;
   while (!await check()) {

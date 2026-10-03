@@ -11,10 +11,13 @@ test('processo drena operação confirmada ao executar handler SIGTERM', async (
   let worker: ReturnType<typeof spawnTestWorker> | undefined;
   try {
     const wallet = await new OpenWallet(new MikroFinancialUnitOfWork(db.orm)).execute({ playerId: crypto.randomUUID(), initialBalance: { amount: '100.00', currency: 'BRL' } }, { correlationId: 'shutdown' });
-    worker = spawnTestWorker({ databaseUrl: db.url, queueUrls: { wagers: queues.wagers, dlq: queues.dlq, events: queues.events }, roles: ['consumer'], waitTimeSeconds: 1, visibilitySeconds: 5, mode: 'commit-pause' });
-    expect((await worker.waitFor('ready')).pid).not.toBe(process.pid);
+    worker = spawnTestWorker({ databaseUrl: db.appUrl, queueUrls: { wagers: queues.wagers, dlq: queues.dlq, events: queues.events }, roles: ['consumer'], waitTimeSeconds: 1, visibilitySeconds: 5, mode: 'commit-pause', metricsPort: 0 });
+    const ready = await worker.waitFor('ready'); expect(ready.pid).not.toBe(process.pid);
+    const metricsUrl = ready.metricsUrl!.replace('0.0.0.0', '127.0.0.1');
+    expect((await fetch(metricsUrl + 'health/ready')).status).toBe(200);
     await queues.client.send(new SendMessageCommand({ QueueUrl: queues.wagers, MessageGroupId: wallet.id, MessageDeduplicationId: 'shutdown', MessageBody: JSON.stringify({ messageId: 'shutdown', type: 'WagerTransactionRequested', occurredAt: new Date().toISOString(), data: { providerId: 'p', externalTransactionId: 'bet', idempotencyKey: 'bet', walletId: wallet.id, playerId: wallet.playerId, roundId: 'r', gameId: 'g', kind: 'BET', money: { amount: '20.00', currency: 'BRL' } } }) }));
     await worker.waitFor('committed');
+    expect(await (await fetch(metricsUrl + 'metrics')).text()).toContain('transactions_total{status="PROCESSED"} 1');
     // Windows não entrega sinais POSIX como Linux; IPC executa o mesmo handler SIGTERM.
     worker.send('stop'); worker.send('release');
     await worker.waitFor('stopped'); expect(await worker.child.exited).toBe(0);

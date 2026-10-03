@@ -14,7 +14,7 @@ const runtime = await bootstrapWorkers({ ...configuration,
   onCommitted: async message => { notice('committed', message.messageId); if (configuration.mode === 'commit-pause') await barrier; },
   onPublished: async message => { notice('published', message.id); if (configuration.mode === 'publish-pause') await barrier; },
 });
-notice('ready');
+process.send?.({ event: 'ready', pid: process.pid, metricsUrl: runtime.metricsUrl });
 await runtime.finished;
 notice('stopped');
 process.disconnect?.();
