@@ -3,7 +3,7 @@ import { createTestDatabase } from '../support/test-database.js';
 import { OpenWallet } from '../../src/application/open-wallet.js';
 import { ProcessWager } from '../../src/application/process-wager.js';
 import { MikroFinancialUnitOfWork } from '../../src/infrastructure/persistence/mikro-financial-unit-of-work.js';
-import type { FinancialUnitOfWork } from '../../src/application/ports/financial-unit-of-work.js';
+import { failAfterWrite } from '../support/failure-injection.js';
 
 test('inbox e pacote financeiro revertem juntos e IDs de mensagem distintos não duplicam efeito', async () => {
   const db = await createTestDatabase(); const uow = new MikroFinancialUnitOfWork(db.orm); const context = { correlationId: 'inbox' };
@@ -11,10 +11,7 @@ test('inbox e pacote financeiro revertem juntos e IDs de mensagem distintos não
     const wallet = await new OpenWallet(uow).execute({ playerId: crypto.randomUUID(), initialBalance: { amount: '100.00', currency: 'BRL' } }, context);
     const input = { providerId: 'p', walletId: wallet.id, playerId: wallet.playerId, externalTransactionId: 'bet', roundId: 'r', gameId: 'g', kind: 'BET' as const, money: { amount: '20.00', currency: 'BRL' } };
     const transport = { messageId: 'm1', consumerName: 'wagers', payloadHash: 'envelope-hash' };
-    const faulty: FinancialUnitOfWork = { run: (id, callback) => uow.run(id, session => callback(new Proxy(session, { get(target, property) {
-      if (property === 'saveInbox') return async (...args: Parameters<typeof session.saveInbox>) => { await target.saveInbox(...args); throw new Error('Falha após inbox e efeitos SQL.'); };
-      const value = Reflect.get(target, property); return typeof value === 'function' ? value.bind(target) : value;
-    } }))) };
+    const faulty = failAfterWrite(uow, 'saveInbox', new Error('Falha após inbox e efeitos SQL.'));
     await expect(new ProcessWager(faulty).execute(input, 'bet', context, transport)).rejects.toThrow();
     const em = db.orm.em.fork();
     expect((await em.execute<{ balance: string }[]>('select balance from wallets where id=?', [wallet.id]))[0]!.balance).toBe('100.00');

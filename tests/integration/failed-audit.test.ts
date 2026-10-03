@@ -6,17 +6,14 @@ import { OpenWallet } from '../../src/application/open-wallet.js';
 import { ProcessWager } from '../../src/application/process-wager.js';
 import { WagerConsumer } from '../../src/interfaces/workers/wager-consumer.js';
 import { MikroFinancialUnitOfWork } from '../../src/infrastructure/persistence/mikro-financial-unit-of-work.js';
-import type { FinancialUnitOfWork } from '../../src/application/ports/financial-unit-of-work.js';
+import { failAfterWrite } from '../support/failure-injection.js';
 
 test('falha permanente grava FAILED/inbox/evento antes da DLQ e não substitui operação terminal', async () => {
   const db = await createTestDatabase(); const queues = await createTestQueues(); const uow = new MikroFinancialUnitOfWork(db.orm); const context = { correlationId: 'failed' };
   try {
     const wallet = await new OpenWallet(uow).execute({ playerId: crypto.randomUUID(), initialBalance: { amount: '100.00', currency: 'BRL' } }, context);
     const input = { providerId: 'p', walletId: wallet.id, playerId: wallet.playerId, externalTransactionId: 'failure', roundId: 'r', gameId: 'g', kind: 'BET' as const, money: { amount: '20.00', currency: 'BRL' } };
-    const faulty: FinancialUnitOfWork = { run: (id, callback) => uow.run(id, session => callback(new Proxy(session, { get(target, property) {
-      if (property === 'appendLedger') return async () => { throw Object.assign(new Error('Falha permanente injetada após débito em memória.'), { code: '23514' }); };
-      const value = Reflect.get(target, property); return typeof value === 'function' ? value.bind(target) : value;
-    } }))) };
+    const faulty = failAfterWrite(uow, 'appendLedger', Object.assign(new Error('Falha permanente após ledger SQL.'), { code: '23514' }));
     const failing = new ProcessWager(faulty);
     const consumer = new WagerConsumer(queues.client, failing, { queueUrl: queues.wagers, dlqUrl: queues.dlq, waitTimeSeconds: 0 });
     await queues.client.send(new SendMessageCommand({ QueueUrl: queues.wagers, MessageGroupId: wallet.id, MessageDeduplicationId: 'failed', MessageBody: JSON.stringify({ messageId: 'failed', type: 'WagerTransactionRequested', occurredAt: new Date().toISOString(), data: { ...input, idempotencyKey: 'failure' } }) }));
