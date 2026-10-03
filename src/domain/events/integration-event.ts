@@ -6,6 +6,8 @@ export interface EventEnvelope<T> {
 export interface IntegrationEventProps<T> extends EventContext {
   eventId: string; aggregateId: string; occurredAt: Date; data: T;
 }
+// O evento conserva os valores do instante em que ocorreu. Alterações posteriores
+// na carteira ou no objeto recebido não podem reescrever um fato já enfileirado.
 export function immutableSnapshot<T>(input: T): T {
   const copy = structuredClone(input);
   function freeze(value: unknown): void {
@@ -17,6 +19,8 @@ export function immutableSnapshot<T>(input: T): T {
   freeze(copy);
   return copy;
 }
+// version representa a versão do contrato do evento. A versão da carteira é outro
+// campo, walletVersion, presente nos dados de WalletBalanceChanged.
 export abstract class IntegrationEvent<T> {
   abstract readonly eventType: string;
   abstract readonly version: number;

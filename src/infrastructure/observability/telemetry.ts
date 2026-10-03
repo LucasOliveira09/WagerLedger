@@ -5,6 +5,8 @@ function series(name: string, labels: MetricLabels = {}): string {
   const values = Object.entries(labels).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
   return values.length ? `${name}{${values.join(',')}}` : name;
 }
+// Métricas vivem em memória por processo e reiniciam com ele; não são a auditoria financeira.
+// IDs pertencem aos logs. Labels das métricas usam categorias limitadas para conter séries.
 export class StructuredTelemetry implements Telemetry {
   private readonly values = new Map<string, number>();
   constructor(private readonly output: (line: string) => void = line => console.log(line)) {}
@@ -15,6 +17,7 @@ export class StructuredTelemetry implements Telemetry {
   }
   gauge(name: string, value: number): void { this.values.set(series(name), value); }
   log(level: 'info' | 'warn' | 'error', event: string, context: LogContext): void {
+    // Lista explícita de campos evita incluir payloads financeiros ou credenciais por acidente.
     const { correlationId, messageId, transactionId, walletId, providerId, code, attempt } = context;
     this.output(JSON.stringify({ timestamp: new Date().toISOString(), level, event, correlationId, messageId, transactionId, walletId, providerId, code, attempt }));
   }

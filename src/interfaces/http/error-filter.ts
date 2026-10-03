@@ -6,6 +6,8 @@ interface HttpReply { status(code: number): HttpReply; json(body: unknown): void
 @Catch()
 export class HttpErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost): void {
+    // Exceções de contrato/infraestrutura passam por este filtro. A rejeição financeira
+    // persistida sai como SubmissionResult (422) do caso de uso, sem lançar exceção.
     let status = 503; let code = 'INFRASTRUCTURE_UNAVAILABLE'; let message = 'Serviço temporariamente indisponível.';
     if (error instanceof DomainError) {
       code = error.code; message = error.message;
