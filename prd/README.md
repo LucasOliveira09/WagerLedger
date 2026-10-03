@@ -21,7 +21,7 @@ concorrência, entrega fora de ordem e reinício de processos.
 ## Stack e decisões de escopo
 
 Bun 1.x, TypeScript estrito, NestJS, PostgreSQL, MikroORM e Docker Compose.
-O emulador SQS será validado entre MiniStack e LocalStack.
+MiniStack 1.5.18 foi adotado após testes de FIFO, visibilidade, redelivery e DLQ.
 BRL será a moeda operacional inicial, com domínio capaz de detectar conflitos
 de moeda. A entrega não inclui IdP; uma porta de identidade e o desenho de
 integração futura serão documentados. Frontend e diferenciais são posteriores
