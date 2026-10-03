@@ -1,4 +1,9 @@
-import { ChangeMessageVisibilityCommand, DeleteMessageCommand, ReceiveMessageCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
+import {
+  ChangeMessageVisibilityCommand,
+  DeleteMessageCommand,
+  ReceiveMessageCommand,
+  SendMessageCommand,
+} from '@aws-sdk/client-sqs';
 import type { Message, SQSClient } from '@aws-sdk/client-sqs';
 import type { ProcessWager } from '../../application/process-wager.js';
 import { parseWagerMessage } from './wager-message.js';
@@ -10,70 +15,189 @@ import type { SubmissionResult } from '../../application/transaction-result.js';
 import { DomainError } from '../../domain/domain-error.js';
 
 export interface ConsumerOptions {
-  queueUrl: string; dlqUrl: string; waitTimeSeconds?: number; visibilitySeconds?: number; maxAttempts?: number;
+  queueUrl: string;
+  dlqUrl: string;
+  waitTimeSeconds?: number;
+  visibilitySeconds?: number;
+  maxAttempts?: number;
   onCommitted?: (message: ReturnType<typeof parseWagerMessage>) => Promise<void>;
 }
+
 export class WagerConsumer {
   private stopping = false;
   private readonly receiving = new AbortController();
-  constructor(private readonly client: SQSClient, private readonly process: ProcessWager, private readonly options: ConsumerOptions, private readonly telemetry: Telemetry = nullTelemetry) {}
-  requestStop(): void { this.stopping = true; this.receiving.abort(); }
+
+  constructor(
+    private readonly client: SQSClient,
+    private readonly process: ProcessWager,
+    private readonly options: ConsumerOptions,
+    private readonly telemetry: Telemetry = nullTelemetry,
+  ) {}
+
+  requestStop(): void {
+    this.stopping = true;
+    this.receiving.abort();
+  }
+
   async tick(): Promise<number> {
     const wait = this.options.waitTimeSeconds ?? 20;
     let result;
+
     try {
-      result = await this.client.send(new ReceiveMessageCommand({ QueueUrl: this.options.queueUrl, MaxNumberOfMessages: 1, WaitTimeSeconds: wait, VisibilityTimeout: this.options.visibilitySeconds ?? 30, MessageSystemAttributeNames: ['ApproximateReceiveCount', 'MessageGroupId'] }), { abortSignal: AbortSignal.any([this.receiving.signal, AbortSignal.timeout((wait + 5) * 1000)]) });
-    } catch (error) { if (this.stopping) return 0; throw error; }
-    for (const message of result.Messages ?? []) {
-      if (this.stopping) await this.client.send(new ChangeMessageVisibilityCommand({ QueueUrl: this.options.queueUrl, ReceiptHandle: message.ReceiptHandle!, VisibilityTimeout: 0 }), { abortSignal: AbortSignal.timeout(5000) });
-      else await this.handle(message);
+      result = await this.client.send(
+        new ReceiveMessageCommand({
+          QueueUrl: this.options.queueUrl,
+          MaxNumberOfMessages: 1,
+          WaitTimeSeconds: wait,
+          VisibilityTimeout: this.options.visibilitySeconds ?? 30,
+          MessageSystemAttributeNames: ['ApproximateReceiveCount', 'MessageGroupId'],
+        }),
+        {
+          abortSignal: AbortSignal.any([
+            this.receiving.signal,
+            AbortSignal.timeout((wait + 5) * 1000),
+          ]),
+        },
+      );
+    } catch (error) {
+      if (this.stopping) {
+        return 0;
+      }
+      throw error;
     }
+    for (const message of result.Messages ?? []) {
+      if (this.stopping) {
+        await this.client.send(
+          new ChangeMessageVisibilityCommand({
+            QueueUrl: this.options.queueUrl,
+            ReceiptHandle: message.ReceiptHandle!,
+            VisibilityTimeout: 0,
+          }),
+          { abortSignal: AbortSignal.timeout(5000) },
+        );
+      } else {
+        await this.handle(message);
+      }
+    }
+
     return result.Messages?.length ?? 0;
   }
+
   async handle(message: Message): Promise<void> {
     let parsed: ReturnType<typeof parseWagerMessage> | undefined;
     let submission: SubmissionResult;
+
     try {
       parsed = parseWagerMessage(message.Body ?? '');
-      submission = await this.process.execute(parsed.input, parsed.key, parsed.context, { messageId: parsed.messageId, consumerName: 'wager-consumer', payloadHash: parsed.payloadHash });
+      submission = await this.process.execute(parsed.input, parsed.key, parsed.context, {
+        messageId: parsed.messageId,
+        consumerName: 'wager-consumer',
+        payloadHash: parsed.payloadHash,
+      });
     } catch (error) {
       const attempt = Number(message.Attributes?.ApproximateReceiveCount ?? '1');
-      const context = parsed ? { ...parsed.context, messageId: parsed.messageId, walletId: parsed.input.walletId, providerId: parsed.input.providerId, attempt } : { messageId: message.MessageId ?? 'unknown', attempt };
+      const context = parsed
+        ? {
+            ...parsed.context,
+            messageId: parsed.messageId,
+            walletId: parsed.input.walletId,
+            providerId: parsed.input.providerId,
+            attempt,
+          }
+        : { messageId: message.MessageId ?? 'unknown', attempt };
+
       // Rejeições financeiras normais são resultados, não exceções, e seguem para ack.
       // Aqui tratamos mensagens inválidas/conflitantes e falhas de infraestrutura.
       if (classifyFailure(error) === 'permanent' || attempt >= (this.options.maxAttempts ?? 5)) {
         // Só uma falha permanente de infraestrutura tenta produzir FAILED auditável.
         // Esgotar retries temporários não torna a operação terminal: permite redrive futuro.
         if (parsed && !(error instanceof DomainError) && classifyFailure(error) === 'permanent') {
-          try { await this.process.recordFailure(parsed.input, parsed.key, parsed.context, { messageId: parsed.messageId, consumerName: 'wager-consumer', payloadHash: parsed.payloadHash }); }
-          catch (auditError) { if (!(auditError instanceof DomainError)) throw auditError; }
+          try {
+            await this.process.recordFailure(parsed.input, parsed.key, parsed.context, {
+              messageId: parsed.messageId,
+              consumerName: 'wager-consumer',
+              payloadHash: parsed.payloadHash,
+            });
+          } catch (auditError) {
+            if (!(auditError instanceof DomainError)) {
+              throw auditError;
+            }
+          }
         }
-        await this.deadLetter(message, classifyFailure(error) === 'permanent' ? 'PERMANENT_MESSAGE' : 'RETRY_EXHAUSTED', context);
+
+        await this.deadLetter(
+          message,
+          classifyFailure(error) === 'permanent' ? 'PERMANENT_MESSAGE' : 'RETRY_EXHAUSTED',
+          context,
+        );
       } else {
-        await this.client.send(new ChangeMessageVisibilityCommand({ QueueUrl: this.options.queueUrl, ReceiptHandle: message.ReceiptHandle!, VisibilityTimeout: retryDelaySeconds(attempt) }), { abortSignal: AbortSignal.timeout(5000) });
-        this.telemetry.count('message_retries_total'); this.telemetry.log('warn', 'message_retry_scheduled', { ...context, code: 'TRANSIENT_FAILURE' });
+        await this.client.send(
+          new ChangeMessageVisibilityCommand({
+            QueueUrl: this.options.queueUrl,
+            ReceiptHandle: message.ReceiptHandle!,
+            VisibilityTimeout: retryDelaySeconds(attempt),
+          }),
+          { abortSignal: AbortSignal.timeout(5000) },
+        );
+        this.telemetry.count('message_retries_total');
+        this.telemetry.log('warn', 'message_retry_scheduled', {
+          ...context,
+          code: 'TRANSIENT_FAILURE',
+        });
       }
+
       return;
     }
+
     // execute() só retorna após commit. O hook permite testar uma morte exatamente
     // entre commit e ack; a redelivery deve virar replay, sem outro efeito financeiro.
     await this.options.onCommitted?.(parsed);
+
     if (submission.currentStatus === 'FAILED') {
-      await this.deadLetter(message, 'AUDITED_FAILURE', { correlationId: parsed.context.correlationId, messageId: parsed.messageId, transactionId: submission.body.transactionId, walletId: parsed.input.walletId, providerId: parsed.input.providerId });
-    } else await this.ack(message);
+      await this.deadLetter(message, 'AUDITED_FAILURE', {
+        correlationId: parsed.context.correlationId,
+        messageId: parsed.messageId,
+        transactionId: submission.body.transactionId,
+        walletId: parsed.input.walletId,
+        providerId: parsed.input.providerId,
+      });
+    } else {
+      await this.ack(message);
+    }
   }
-  private async deadLetter(message: Message, failureCode: string, context: LogContext): Promise<void> {
-    await this.client.send(new SendMessageCommand({
-      QueueUrl: this.options.dlqUrl, MessageBody: message.Body ?? '', MessageGroupId: message.Attributes?.MessageGroupId ?? 'invalid',
-      MessageDeduplicationId: payloadHash({ brokerMessageId: message.MessageId, body: message.Body }),
-      MessageAttributes: { failureCode: { DataType: 'String', StringValue: failureCode } },
-    }), { abortSignal: AbortSignal.timeout(5000) });
+
+  private async deadLetter(
+    message: Message,
+    failureCode: string,
+    context: LogContext,
+  ): Promise<void> {
+    await this.client.send(
+      new SendMessageCommand({
+        QueueUrl: this.options.dlqUrl,
+        MessageBody: message.Body ?? '',
+        MessageGroupId: message.Attributes?.MessageGroupId ?? 'invalid',
+        MessageDeduplicationId: payloadHash({
+          brokerMessageId: message.MessageId,
+          body: message.Body,
+        }),
+        MessageAttributes: { failureCode: { DataType: 'String', StringValue: failureCode } },
+      }),
+      { abortSignal: AbortSignal.timeout(5000) },
+    );
     // Só removemos a original após confirmar o envio à DLQ. Falha de envio preserva
     // a possibilidade de receber novamente a mensagem de origem.
     await this.ack(message);
-    this.telemetry.count('messages_dlq_total'); this.telemetry.log('warn', 'message_sent_to_dlq', { ...context, code: failureCode });
+    this.telemetry.count('messages_dlq_total');
+    this.telemetry.log('warn', 'message_sent_to_dlq', { ...context, code: failureCode });
   }
+
   private async ack(message: Message): Promise<void> {
-    await this.client.send(new DeleteMessageCommand({ QueueUrl: this.options.queueUrl, ReceiptHandle: message.ReceiptHandle! }), { abortSignal: AbortSignal.timeout(5000) });
+    await this.client.send(
+      new DeleteMessageCommand({
+        QueueUrl: this.options.queueUrl,
+        ReceiptHandle: message.ReceiptHandle!,
+      }),
+      { abortSignal: AbortSignal.timeout(5000) },
+    );
   }
 }

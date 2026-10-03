@@ -7,16 +7,37 @@ import { ProviderIdentityPort } from '../../application/ports/provider-identity.
 
 @Controller('wagering/transactions')
 export class WagerController {
-  constructor(@Inject(ProcessWager) private readonly processWager: ProcessWager, @Inject(FinancialQueries) private readonly queries: FinancialQueries, @Inject(ProviderIdentityPort) private readonly identity: ProviderIdentityPort) {}
+  constructor(
+    @Inject(ProcessWager) private readonly processWager: ProcessWager,
+    @Inject(FinancialQueries) private readonly queries: FinancialQueries,
+    @Inject(ProviderIdentityPort) private readonly identity: ProviderIdentityPort,
+  ) {}
+
   @Get(':transactionId')
-  get(@Param('transactionId') id: string) { return this.queries.transaction(uuidInput(id, 'transactionId')); }
+  get(@Param('transactionId') id: string) {
+    return this.queries.transaction(uuidInput(id, 'transactionId'));
+  }
+
   @Post()
-  async submit(@Body() input: unknown, @Headers('idempotency-key') key: string | undefined,
-    @Headers('x-correlation-id') correlationId: string | undefined, @Headers('authorization') authorization: string | undefined, @Res({ passthrough: true }) response: { status(code: number): unknown }) {
+  async submit(
+    @Body() input: unknown,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string | undefined,
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: { status(code: number): unknown },
+  ) {
     const parsed = parseWager(input);
-    await this.identity.assertIdentity({ declaredProviderId: parsed.providerId, ...(authorization ? { authorization } : {}) });
-    const result = await this.processWager.execute(parsed, stringInput(key, 'Idempotency-Key', 256), { correlationId: correlationInput(correlationId) });
+    await this.identity.assertIdentity({
+      declaredProviderId: parsed.providerId,
+      ...(authorization ? { authorization } : {}),
+    });
+    const result = await this.processWager.execute(
+      parsed,
+      stringInput(key, 'Idempotency-Key', 256),
+      { correlationId: correlationInput(correlationId) },
+    );
     response.status(result.statusCode);
+
     return result.body;
   }
 }
@@ -24,8 +45,12 @@ export class WagerController {
 @Controller('providers/:providerId/wagering/transactions')
 export class ProviderTransactionController {
   constructor(@Inject(FinancialQueries) private readonly queries: FinancialQueries) {}
+
   @Get(':externalTransactionId')
   get(@Param('providerId') providerId: string, @Param('externalTransactionId') externalId: string) {
-    return this.queries.external(stringInput(providerId, 'providerId', 100), stringInput(externalId, 'externalTransactionId', 200));
+    return this.queries.external(
+      stringInput(providerId, 'providerId', 100),
+      stringInput(externalId, 'externalTransactionId', 200),
+    );
   }
 }

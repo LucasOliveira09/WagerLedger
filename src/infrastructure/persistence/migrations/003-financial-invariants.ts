@@ -47,6 +47,7 @@ export class Migration003 extends Migration {
       ALTER TABLE outbox_messages ADD CONSTRAINT outbox_envelope CHECK (payload ?& ARRAY['eventId','eventType','aggregateId','correlationId','occurredAt','version','data'] AND payload->>'eventType'=event_type AND payload->>'aggregateId'=aggregate_id::text);
     `);
   }
+
   override down(): void {
     this.addSql(`ALTER TABLE outbox_messages DROP CONSTRAINT outbox_envelope;
       DROP TRIGGER outbox_payload_immutable ON outbox_messages; DROP FUNCTION protect_outbox_payload();

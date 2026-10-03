@@ -55,8 +55,11 @@ export class Migration001 extends Migration {
       CREATE TRIGGER wallet_version BEFORE INSERT OR UPDATE ON wallets FOR EACH ROW EXECUTE FUNCTION enforce_wallet_version();
     `);
   }
+
   override down(): void {
     // Reversão de schema remove tabelas e seus dados; não é uma operação financeira de estorno.
-    this.addSql('DROP TABLE wallet_ledger; DROP TABLE wallets; DROP FUNCTION enforce_wallet_version(); DROP FUNCTION assert_wallet_ledger_balance(); DROP FUNCTION forbid_ledger_mutation();');
+    this.addSql(
+      'DROP TABLE wallet_ledger; DROP TABLE wallets; DROP FUNCTION enforce_wallet_version(); DROP FUNCTION assert_wallet_ledger_balance(); DROP FUNCTION forbid_ledger_mutation();',
+    );
   }
 }

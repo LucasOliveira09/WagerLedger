@@ -70,6 +70,7 @@ export class Migration002 extends Migration {
       GRANT SELECT,INSERT ON wallet_ledger TO wagerledger_app;
     `);
   }
+
   override down(): void {
     this.addSql(`ALTER TABLE wallet_ledger DROP CONSTRAINT ledger_transaction_fk;
       DROP TABLE outbox_messages; DROP TABLE inbox_messages; DROP TABLE wager_transactions;
