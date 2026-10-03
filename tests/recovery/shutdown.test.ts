@@ -7,21 +7,74 @@ import { OpenWallet } from '../../src/application/open-wallet.js';
 import { MikroFinancialUnitOfWork } from '../../src/infrastructure/persistence/mikro-financial-unit-of-work.js';
 
 test('processo drena operação confirmada ao executar handler SIGTERM', async () => {
-  const db = await createTestDatabase(); const queues = await createTestQueues();
+  const db = await createTestDatabase();
+  const queues = await createTestQueues();
   let worker: ReturnType<typeof spawnTestWorker> | undefined;
+
   try {
-    const wallet = await new OpenWallet(new MikroFinancialUnitOfWork(db.orm)).execute({ playerId: crypto.randomUUID(), initialBalance: { amount: '100.00', currency: 'BRL' } }, { correlationId: 'shutdown' });
-    worker = spawnTestWorker({ databaseUrl: db.appUrl, queueUrls: { wagers: queues.wagers, dlq: queues.dlq, events: queues.events }, roles: ['consumer'], waitTimeSeconds: 1, visibilitySeconds: 5, mode: 'commit-pause', metricsPort: 0 });
-    const ready = await worker.waitFor('ready'); expect(ready.pid).not.toBe(process.pid);
+    const wallet = await new OpenWallet(new MikroFinancialUnitOfWork(db.orm)).execute(
+      { playerId: crypto.randomUUID(), initialBalance: { amount: '100.00', currency: 'BRL' } },
+      { correlationId: 'shutdown' },
+    );
+    worker = spawnTestWorker({
+      databaseUrl: db.appUrl,
+      queueUrls: { wagers: queues.wagers, dlq: queues.dlq, events: queues.events },
+      roles: ['consumer'],
+      waitTimeSeconds: 1,
+      visibilitySeconds: 5,
+      mode: 'commit-pause',
+      metricsPort: 0,
+    });
+    const ready = await worker.waitFor('ready');
+    expect(ready.pid).not.toBe(process.pid);
     const metricsUrl = ready.metricsUrl!.replace('0.0.0.0', '127.0.0.1');
     expect((await fetch(metricsUrl + 'health/ready')).status).toBe(200);
-    await queues.client.send(new SendMessageCommand({ QueueUrl: queues.wagers, MessageGroupId: wallet.id, MessageDeduplicationId: 'shutdown', MessageBody: JSON.stringify({ messageId: 'shutdown', type: 'WagerTransactionRequested', occurredAt: new Date().toISOString(), data: { providerId: 'p', externalTransactionId: 'bet', idempotencyKey: 'bet', walletId: wallet.id, playerId: wallet.playerId, roundId: 'r', gameId: 'g', kind: 'BET', money: { amount: '20.00', currency: 'BRL' } } }) }));
+    await queues.client.send(
+      new SendMessageCommand({
+        QueueUrl: queues.wagers,
+        MessageGroupId: wallet.id,
+        MessageDeduplicationId: 'shutdown',
+        MessageBody: JSON.stringify({
+          messageId: 'shutdown',
+          type: 'WagerTransactionRequested',
+          occurredAt: new Date().toISOString(),
+          data: {
+            providerId: 'p',
+            externalTransactionId: 'bet',
+            idempotencyKey: 'bet',
+            walletId: wallet.id,
+            playerId: wallet.playerId,
+            roundId: 'r',
+            gameId: 'g',
+            kind: 'BET',
+            money: { amount: '20.00', currency: 'BRL' },
+          },
+        }),
+      }),
+    );
     await worker.waitFor('committed');
-    expect(await (await fetch(metricsUrl + 'metrics')).text()).toContain('transactions_total{status="PROCESSED"} 1');
+    expect(await (await fetch(metricsUrl + 'metrics')).text()).toContain(
+      'transactions_total{status="PROCESSED"} 1',
+    );
     // Windows não entrega sinais POSIX como Linux; IPC executa o mesmo handler SIGTERM.
-    worker.send('stop'); worker.send('release');
-    await worker.waitFor('stopped'); expect(await worker.child.exited).toBe(0);
-    expect((await queues.client.send(new ReceiveMessageCommand({ QueueUrl: queues.wagers }))).Messages ?? []).toHaveLength(0);
-    expect((await db.orm.em.fork().execute<{ balance: string }[]>('select balance from wallets where id=?', [wallet.id]))[0]!.balance).toBe('80.00');
-  } finally { await worker?.kill(); await queues.close(); await db.close(); }
+    worker.send('stop');
+    worker.send('release');
+    await worker.waitFor('stopped');
+    expect(await worker.child.exited).toBe(0);
+    expect(
+      (await queues.client.send(new ReceiveMessageCommand({ QueueUrl: queues.wagers }))).Messages ??
+        [],
+    ).toHaveLength(0);
+    expect(
+      (
+        await db.orm.em
+          .fork()
+          .execute<{ balance: string }[]>('select balance from wallets where id=?', [wallet.id])
+      )[0]!.balance,
+    ).toBe('80.00');
+  } finally {
+    await worker?.kill();
+    await queues.close();
+    await db.close();
+  }
 }, 30000);

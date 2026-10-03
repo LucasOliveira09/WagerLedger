@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { Wallet } from '../../src/domain/wallet.js';
 import { Money } from '../../src/domain/money.js';
+
 const money = (amount: string, currency = 'BRL') => Money.from({ amount, currency });
 
 test('wallet mantém saldo e ledger, incrementando version apenas quando muda', () => {
@@ -17,9 +18,12 @@ test('wallet mantém saldo e ledger, incrementando version apenas quando muda', 
   expect(wallet.balance.toString()).toBe('20.00');
   expect(wallet.version).toBe(2);
 });
+
 test('wallet rejeita moeda divergente e movimentação zero', () => {
   const wallet = Wallet.open({ id: 'wallet', playerId: 'player', initialBalance: money('0.00') });
-  expect(() => wallet.credit(money('1.00', 'USD'), { id: 'entry', transactionId: 'win' })).toThrow();
+  expect(() =>
+    wallet.credit(money('1.00', 'USD'), { id: 'entry', transactionId: 'win' }),
+  ).toThrow();
   expect(() => wallet.credit(money('0.00'), { id: 'entry', transactionId: 'win' })).toThrow();
   wallet.credit(money('25.00'), { id: 'entry', transactionId: 'win' });
   expect(wallet.balance.toString()).toBe('25.00');
