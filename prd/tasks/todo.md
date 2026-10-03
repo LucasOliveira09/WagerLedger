@@ -212,7 +212,8 @@ Marco: operações e consultas fechadas, inclusive referências e reconciliaçã
 
 ## T23 — Classificar retry e DLQ
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: poison real chegou à DLQ; falha temporária sofreu backoff e limite de duas tentativas no teste; DLQ inexistente impediu ack e origem foi reentregue; inbox não foi gravada em tentativas revertidas.
 - Dependências: T22.
 - Aceite: Negócio terminal recebe ack; transitórios têm backoff/limite; poison messages e erros permanentes chegam à DLQ; remover origem somente após envio confirmado.
 - Verificação: bun run test:integration -- tests/integration/sqs-failures.test.ts; inspecionar mensagens na DLQ.
