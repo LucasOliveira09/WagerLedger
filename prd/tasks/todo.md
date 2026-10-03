@@ -312,6 +312,18 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
   falhas; lint/tipos/build aprovados. Revisão independente seguida de regressões
   para eventos ausentes/tipos duplicados e lag residual do aquecimento.
 
+## T33 — Melhorar legibilidade e padronizar formatação
+
+- [x] Concluída e verificada.
+- Escopo: TypeScript de produção, testes e scripts; configuração de formatação,
+  blocos com chaves, separação visual de métodos/etapas e regras de manutenção.
+- Aceite: código legível com padrão reproduzível, comportamento preservado e
+  artefatos gerados sincronizados.
+- Evidência: Prettier 3.9.9/EditorConfig, comandos `format`/`format:check`,
+  regras em AGENTS.md e lint; JavaScript compilado/normalizado idêntico em 129
+  arquivos contra `08519a8`; suíte completa com 76 testes e 454 assertions;
+  formatter/lint/tipos/build aprovados e documentação de validação atualizada.
+
 ## Critério final da entrega principal
 
 Nenhuma falha eliminatória do PRD. Evidências reproduzíveis com PostgreSQL/SQS

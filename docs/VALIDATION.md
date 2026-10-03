@@ -130,6 +130,31 @@ A revisão independente identificou a necessidade de auditar eventos ausentes
 e excluir lag residual do aquecimento; as correções receberam regressões e a
 revisão seguinte não encontrou bloqueadores materiais no harness.
 
+## Legibilidade e formatação
+
+A revisão visual padronizou o TypeScript de `src/`, `tests/` e `scripts/`, com
+Prettier 3.9.9 fixado como dependência de desenvolvimento. Foram expandidas
+instruções comprimidas, interfaces, objetos e assinaturas longas; métodos e
+etapas lógicas receberam separação visual. O ESLint exige chaves em condições
+e loops. EditorConfig e os comandos `format`/`format:check` mantêm o padrão.
+
+A comparação contra `08519a8` abrangeu **129 arquivos TypeScript**. Cada versão
+foi compilada com `transpileModule` do TypeScript, usando as opções do projeto,
+sem comentários/source maps; o JavaScript foi normalizado pelo transpiler Bun
+com minificação de sintaxe/espaços. As saídas normalizadas foram idênticas.
+Isso verifica a equivalência dessa representação executável; as diferenças
+de linhas e source maps são esperadas numa alteração de formatação.
+As configurações TypeScript também preservaram o conteúdo JSON original.
+
+A suíte completa passou com **76 testes, 454 assertions, zero falhas e 49
+arquivos**, em 30,51 segundos. Formatação, lint, tipos e build passaram.
+A revisão independente identificou que `docs/` ignorava também `scripts/docs/`;
+a exclusão foi ancorada na raiz como `/docs/`, e o gerador Postman entrou no
+formatter. Depois desse ajuste, a comparação dos 129 arquivos e os checks
+de formatação/lint/tipos passaram novamente; os dois testes da documentação
+passaram com 19 assertions, confirmando artefatos gerados sincronizados.
+Documentos, enunciado ignorado e artefatos gerados ficaram fora do formatter.
+
 ## Limites das evidências
 
 - Concorrência usa processos do sistema operacional; morte abrupta encerra

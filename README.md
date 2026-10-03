@@ -207,6 +207,7 @@ Publicações podem se repetir: consumidores devem deduplicar por `eventId`.
 Com a infraestrutura local ativa:
 
 ```sh
+bun run format:check
 bun run lint
 bun run typecheck
 bun run build
@@ -229,6 +230,14 @@ carteira disputada e carteiras independentes. Consulte a
 Para desenvolvimento, `bun run start:dev` habilita watch. `migration:down`
 reverte a última migration e destina-se à manutenção do schema.
 `bun run docs:generate` regenera a especificação OpenAPI e os arquivos do Postman.
+
+Para manter o código legível, `bun run format` aplica Prettier ao TypeScript de
+`src/`, `tests/` e `scripts/`, além das configurações JavaScript/JSON da raiz.
+O padrão usa dois espaços, aspas simples e largura de referência de 100 caracteres.
+Métodos e etapas lógicas têm separação visual; condições e loops usam chaves.
+`format:check` apenas verifica o padrão. EditorConfig compartilha indentação e
+fim de linha com editores compatíveis. Documentos e artefatos gerados têm
+formatação própria e ficam fora desse comando.
 
 ## Decisões e limites
 

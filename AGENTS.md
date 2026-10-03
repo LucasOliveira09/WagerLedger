@@ -8,6 +8,10 @@
 - Escreva a descrição e o corpo do commit em português, com texto claro e profissional.
 - Use o formato `<tipo>: <descrição>`, por exemplo `feat: implementa criação de carteira`.
 - Siga Clean Code: nomes claros, responsabilidades bem definidas e soluções simples.
+- Use Prettier e EditorConfig para manter dois espaços, aspas simples e quebras de linha consistentes.
+- Evite comprimir instruções na mesma linha; separe métodos e etapas lógicas com uma linha em branco.
+- Use chaves em condições e loops, inclusive quando houver apenas uma instrução.
+- Execute `bun run format` após editar código e `bun run format:check` antes de concluir a alteração.
 - Mantenha o repositório organizado, sem arquivos temporários, segredos ou artefatos gerados.
 - Execute as verificações adequadas à alteração antes de criar o commit.
 - Mantenha o README público com a apresentação, o setup e os comandos reais do projeto.
