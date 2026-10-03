@@ -268,7 +268,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T29 — Completar métricas e health
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: JSON seguro/IDs e contadores de status, duplicatas, retries, DLQ, conflitos/espera de lock, lag e histogramas instrumentados; health HTTP detectou PG/SQS indisponíveis sem derrubar live; worker em outro PID expôs métricas do próprio processamento.
 - Dependências: T22, T24, T21.
 - Aceite: Logs JSON seguros; métricas de status/duplicatas/retry/DLQ/locks/outbox lag/latência; liveness aberto e readiness consulta PG/SQS.
 - Verificação: bun run test:integration -- tests/integration/observability.test.ts; indisponibilizar dependências e conferir readiness.
