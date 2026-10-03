@@ -1,0 +1,33 @@
+{
+  "name": "wager-ledger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": { "bun": "1.4.2" },
+  "scripts": {
+    "build": "bun x tsc -p tsconfig.build.json",
+    "typecheck": "bun x tsc --noEmit",
+    "start:dev": "bun --watch src/main.ts",
+    "start:api": "bun src/main.ts",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:concurrency": "bun test tests/concurrency",
+    "test:recovery": "bun test tests/recovery"
+  },
+  "dependencies": {
+    "@mikro-orm/core": "7.2.3",
+    "@mikro-orm/migrations": "7.2.3",
+    "@mikro-orm/nestjs": "7.1.0",
+    "@mikro-orm/postgresql": "7.2.3",
+    "@nestjs/common": "12.1.2",
+    "@nestjs/core": "12.1.2",
+    "@nestjs/platform-express": "12.1.2",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "typescript": "5.9.3"
+  }
+}
