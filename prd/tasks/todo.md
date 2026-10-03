@@ -156,7 +156,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T17 — Processar REFUND e ROLLBACK
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: valor parcial/tipo inválido rejeitados; refunds concorrentes resultaram em uma reversão e uma rejeição auditável; rollback de ganho gasto rejeitou com REVERSAL_INSUFFICIENT_FUNDS e nenhum ledger; unicidade por referência/tipo preservada.
 - Dependências: T16.
 - Aceite: Tipo, vínculo e valor de referência validados; reversões únicas por tipo; reversão sem saldo tem failureCode próprio e não altera ledger.
 - Verificação: bun run test:integration -- tests/integration/reversals.test.ts; concorrência sobre a mesma referência.

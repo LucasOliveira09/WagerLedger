@@ -14,18 +14,20 @@ import type { SubmissionResult } from './transaction-result.js';
 export async function applyWager(session: FinancialSession, tx: WagerTransaction, context: EventContext): Promise<SubmissionResult> {
   const wallet = session.wallet!;
   let reference: WagerTransaction | undefined;
+  let awaitingReference = false;
   if (tx.playerId !== wallet.playerId) tx.reject('WALLET_IDENTITY_MISMATCH');
   else if (tx.money.currency !== wallet.currency) tx.reject('CURRENCY_MISMATCH');
   else if (tx.referenceExternalTransactionId) {
     reference = (await session.transactionByExternal(tx.providerId, tx.referenceExternalTransactionId))?.transaction;
-    if (!reference || !reference.isTerminal()) tx.markPendingReference();
+    if (!reference || !reference.isTerminal()) { tx.markPendingReference(); awaitingReference = true; }
     else {
       const failure = referenceFailure(tx, reference);
       if (failure) tx.reject(failure);
+      else if ((tx.kind === 'REFUND' || tx.kind === 'ROLLBACK') && await session.reversalExists(reference.id, tx.kind)) tx.reject('REVERSAL_ALREADY_APPLIED');
     }
   }
   let entry: WalletLedgerEntry | undefined;
-  if (!tx.isTerminal() && tx.status !== 'PENDING_REFERENCE') {
+  if (!tx.isTerminal() && !awaitingReference) {
     try {
       if (tx.affectsBalance()) {
         const metadata = { id: crypto.randomUUID(), transactionId: tx.id };

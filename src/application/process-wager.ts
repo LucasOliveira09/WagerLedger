@@ -1,4 +1,3 @@
-import { DomainError } from '../domain/domain-error.js';
 import { Money } from '../domain/money.js';
 import { WagerTransaction } from '../domain/wager-transaction.js';
 import { payloadHash } from './canonical-payload.js';
@@ -18,7 +17,6 @@ export interface WagerInput {
 export class ProcessWager {
   constructor(private readonly uow: FinancialUnitOfWork) {}
   async execute(input: WagerInput, key: string, context: EventContext): Promise<SubmissionResult> {
-    if (input.kind === 'REFUND' || input.kind === 'ROLLBACK') throw new DomainError('UNSUPPORTED_OPERATION', 'Operação ainda indisponível.');
     const money = Money.from(input.money); const hash = payloadHash(input);
     return this.uow.run(input.walletId, async session => {
       const replay = await resolveIdempotency(session, key, hash, input.providerId, input.externalTransactionId);
