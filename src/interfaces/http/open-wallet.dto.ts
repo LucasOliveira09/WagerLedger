@@ -1,4 +1,4 @@
-import { objectInput, moneyInput, uuidInput } from './input-validation.js';
+import { objectInput, moneyInput, uuidInput } from '../contracts/input-validation.js';
 import type { OpenWalletInput } from '../../application/open-wallet.js';
 
 export function parseOpenWallet(input: unknown): OpenWalletInput {

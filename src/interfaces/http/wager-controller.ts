@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, Inject, Param, Post, Res } from '@nestjs/common';
 import { ProcessWager } from '../../application/process-wager.js';
-import { parseWager } from './wager.dto.js';
-import { correlationInput, stringInput, uuidInput } from './input-validation.js';
+import { parseWager } from '../contracts/wager.dto.js';
+import { correlationInput, stringInput, uuidInput } from '../contracts/input-validation.js';
 import { FinancialQueries } from '../../application/financial-queries.js';
 
 @Controller('wagering/transactions')

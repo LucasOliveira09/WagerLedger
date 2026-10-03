@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
 import { OpenWallet } from '../../application/open-wallet.js';
 import { parseOpenWallet } from './open-wallet.dto.js';
-import { correlationInput, stringInput, uuidInput } from './input-validation.js';
+import { correlationInput, stringInput, uuidInput } from '../contracts/input-validation.js';
 import { DomainError } from '../../domain/domain-error.js';
 import { FinancialQueries } from '../../application/financial-queries.js';
 import { ReconcileWallet } from '../../application/reconcile-wallet.js';
