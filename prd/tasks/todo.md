@@ -203,7 +203,8 @@ Marco: operações e consultas fechadas, inclusive referências e reconciliaçã
 
 ## T22 — Consumir SQS com inbox atômica
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: SQS real disputou a mesma operação com entrada síncrona sem duplicar; IDs de mensagem distintos gravaram duas inboxes e um débito; pendência confirmou/liberou grupo FIFO; falha após escrita da inbox reverteu todo pacote financeiro.
 - Dependências: T03, T15, T18.
 - Aceite: Mesmo caso de uso do HTTP; inbox/hash e efeitos no mesmo commit; ack após commit; PENDING_REFERENCE libera FIFO; messageIds distintos não duplicam operação.
 - Verificação: bun run test:integration -- tests/integration/sqs-consumer.test.ts; HTTP e SQS simultâneos.
