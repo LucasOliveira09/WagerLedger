@@ -89,6 +89,26 @@ API em porta temporária, role limitada e worker de referências/publicação.
 As ferramentas externas de verificação foram instaladas em uma pasta temporária,
 sem acrescentar dependências de teste ao runtime do projeto.
 
+## Comentários e guias de estudo
+
+A extensão de estudo do código adicionou comentários explicativos em 30 arquivos
+TypeScript e os guias [de estrutura](GUIA_DO_CODIGO.md),
+[de fluxos financeiros](FLUXOS_FINANCEIROS.md) e
+[de requisitos/evidências](REQUISITOS_E_EVIDENCIAS.md). O enunciado original
+permaneceu ignorado pelo Git.
+
+Lint, checagem de tipos, build e os **30 testes unitários, com 110 assertions**,
+passaram. A comparação com o commit `dd53779`, usando o compilador TypeScript
+com remoção de comentários e sem source maps, produziu JavaScript idêntico
+nos 30 arquivos comentados. Links relativos dos guias e blocos de código
+também foram verificados. Uma revisão independente comparou as explicações
+com código, testes e enunciado local, sem encontrar correções obrigatórias.
+
+A suíte completa de integração/concorrência/recuperação não foi reexecutada
+para esta extensão documental; seus resultados anteriores continuam sendo
+as evidências históricas descritas acima. Não houve inicialização ou parada
+de serviços nesta etapa.
+
 ## Limites das evidências
 
 - Concorrência usa processos do sistema operacional; morte abrupta encerra

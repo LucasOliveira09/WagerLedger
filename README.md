@@ -241,5 +241,8 @@ OpenTelemetry. As garantias testadas são de correção e recuperação, sem uma
 meta de throughput comprovada.
 
 - [Arquitetura e trade-offs](ARCHITECTURE.md).
+- [Guia do código e da estrutura](docs/GUIA_DO_CODIGO.md).
+- [Fluxos financeiros explicados passo a passo](docs/FLUXOS_FINANCEIROS.md).
+- [Requisitos da vaga e evidências no projeto](docs/REQUISITOS_E_EVIDENCIAS.md).
 - [PRD autoral](prd/README.md).
 - [Tarefas e evidências](prd/tasks/todo.md).
