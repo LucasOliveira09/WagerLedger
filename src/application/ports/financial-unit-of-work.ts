@@ -13,14 +13,27 @@ export interface FinancialSession {
   appendLedger(entry: WalletLedgerEntry): Promise<void>;
   appendOutbox(messages: readonly OutboxMessage[]): Promise<void>;
   transactionByKey(key: string): Promise<StoredTransaction | undefined>;
-  transactionByExternal(providerId: string, externalTransactionId: string): Promise<StoredTransaction | undefined>;
+  transactionByExternal(
+    providerId: string,
+    externalTransactionId: string,
+  ): Promise<StoredTransaction | undefined>;
   reversalExists(referenceId: string, kind: 'REFUND' | 'ROLLBACK'): Promise<boolean>;
   transactionById(id: string): Promise<StoredTransaction | undefined>;
   scheduleReference(id: string, attempts: number, nextAttemptAt: Date | undefined): Promise<void>;
   inbox(messageId: string, consumerName: string): Promise<InboxMessage | undefined>;
   saveInbox(message: InboxMessage): Promise<void>;
 }
-export interface StoredTransaction { transaction: WagerTransaction; snapshot: SubmissionResult | null; referenceAttempts?: number; nextAttemptAt?: Date }
+
+export interface StoredTransaction {
+  transaction: WagerTransaction;
+  snapshot: SubmissionResult | null;
+  referenceAttempts?: number;
+  nextAttemptAt?: Date;
+}
+
 export interface FinancialUnitOfWork {
-  run<T>(walletId: string | undefined, operation: (session: FinancialSession) => Promise<T>): Promise<T>;
+  run<T>(
+    walletId: string | undefined,
+    operation: (session: FinancialSession) => Promise<T>,
+  ): Promise<T>;
 }

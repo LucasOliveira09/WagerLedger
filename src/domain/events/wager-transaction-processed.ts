@@ -8,8 +8,17 @@ import type { Wallet } from '../wallet.js';
 export class WagerTransactionProcessed extends IntegrationEvent<WagerEventData> {
   readonly eventType = 'WagerTransactionProcessed';
   readonly version = 1;
-  private constructor(props: IntegrationEventProps<WagerEventData>) { super(props); Object.freeze(this); }
-  static from(tx: WagerTransaction, wallet: Wallet, context: EventContext): WagerTransactionProcessed {
+
+  private constructor(props: IntegrationEventProps<WagerEventData>) {
+    super(props);
+    Object.freeze(this);
+  }
+
+  static from(
+    tx: WagerTransaction,
+    wallet: Wallet,
+    context: EventContext,
+  ): WagerTransactionProcessed {
     return new WagerTransactionProcessed(wagerEventProps(tx, wallet, context, 'PROCESSED'));
   }
 }

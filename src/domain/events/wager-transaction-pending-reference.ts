@@ -8,8 +8,19 @@ import type { Wallet } from '../wallet.js';
 export class WagerTransactionPendingReference extends IntegrationEvent<WagerEventData> {
   readonly eventType = 'WagerTransactionPendingReference';
   readonly version = 1;
-  private constructor(props: IntegrationEventProps<WagerEventData>) { super(props); Object.freeze(this); }
-  static from(tx: WagerTransaction, wallet: Wallet, context: EventContext): WagerTransactionPendingReference {
-    return new WagerTransactionPendingReference(wagerEventProps(tx, wallet, context, 'PENDING_REFERENCE'));
+
+  private constructor(props: IntegrationEventProps<WagerEventData>) {
+    super(props);
+    Object.freeze(this);
+  }
+
+  static from(
+    tx: WagerTransaction,
+    wallet: Wallet,
+    context: EventContext,
+  ): WagerTransactionPendingReference {
+    return new WagerTransactionPendingReference(
+      wagerEventProps(tx, wallet, context, 'PENDING_REFERENCE'),
+    );
   }
 }

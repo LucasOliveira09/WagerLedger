@@ -4,10 +4,20 @@ import { WalletLedgerEntry } from './wallet-ledger-entry.js';
 import type { LedgerDirection } from './wallet-ledger-entry.js';
 
 export interface WalletState {
-  id: string; playerId: string; currency: string; balance: Money;
-  version: number; createdAt: Date; updatedAt: Date;
+  id: string;
+  playerId: string;
+  currency: string;
+  balance: Money;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
-export interface MovementContext { id: string; transactionId: string; at?: Date }
+
+export interface MovementContext {
+  id: string;
+  transactionId: string;
+  at?: Date;
+}
 
 /** Agregado que controla saldo e versão; o bloqueio entre processos pertence à persistência. */
 export class Wallet {
@@ -20,36 +30,99 @@ export class Wallet {
   private updateTimestamp: number;
 
   private constructor(state: WalletState) {
-    this.id = state.id; this.playerId = state.playerId; this.currency = state.currency;
-    this._balance = state.balance; this._version = state.version;
-    this.creationTimestamp = state.createdAt.getTime(); this.updateTimestamp = state.updatedAt.getTime();
+    this.id = state.id;
+    this.playerId = state.playerId;
+    this.currency = state.currency;
+    this._balance = state.balance;
+    this._version = state.version;
+    this.creationTimestamp = state.createdAt.getTime();
+    this.updateTimestamp = state.updatedAt.getTime();
   }
 
   static open(props: { id: string; playerId: string; initialBalance: Money }): Wallet {
-    if (props.initialBalance.isNegative()) throw new DomainError('INVALID_MONEY', 'Saldo inicial não pode ser negativo.');
+    if (props.initialBalance.isNegative()) {
+      throw new DomainError('INVALID_MONEY', 'Saldo inicial não pode ser negativo.');
+    }
+
     const now = new Date();
-    return new Wallet({ id: props.id, playerId: props.playerId, currency: props.initialBalance.currency, balance: props.initialBalance, version: 1, createdAt: now, updatedAt: now });
+
+    return new Wallet({
+      id: props.id,
+      playerId: props.playerId,
+      currency: props.initialBalance.currency,
+      balance: props.initialBalance,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
-  static rehydrate(state: WalletState): Wallet { return new Wallet(state); }
-  get balance(): Money { return this._balance; }
-  get version(): number { return this._version; }
-  get createdAt(): Date { return new Date(this.creationTimestamp); }
-  get updatedAt(): Date { return new Date(this.updateTimestamp); }
-  debit(money: Money, context: MovementContext): WalletLedgerEntry { return this.move('DEBIT', money, context); }
-  credit(money: Money, context: MovementContext): WalletLedgerEntry { return this.move('CREDIT', money, context); }
+  static rehydrate(state: WalletState): Wallet {
+    return new Wallet(state);
+  }
 
-  private move(direction: LedgerDirection, money: Money, context: MovementContext): WalletLedgerEntry {
-    if (money.currency !== this.currency) throw new DomainError('CURRENCY_MISMATCH', 'Moeda incompatível com a carteira.');
-    if (!money.isPositive()) throw new DomainError('INVALID_AMOUNT', 'Movimentações exigem valor positivo.');
+  get balance(): Money {
+    return this._balance;
+  }
+
+  get version(): number {
+    return this._version;
+  }
+
+  get createdAt(): Date {
+    return new Date(this.creationTimestamp);
+  }
+
+  get updatedAt(): Date {
+    return new Date(this.updateTimestamp);
+  }
+
+  debit(money: Money, context: MovementContext): WalletLedgerEntry {
+    return this.move('DEBIT', money, context);
+  }
+
+  credit(money: Money, context: MovementContext): WalletLedgerEntry {
+    return this.move('CREDIT', money, context);
+  }
+
+  private move(
+    direction: LedgerDirection,
+    money: Money,
+    context: MovementContext,
+  ): WalletLedgerEntry {
+    if (money.currency !== this.currency) {
+      throw new DomainError('CURRENCY_MISMATCH', 'Moeda incompatível com a carteira.');
+    }
+    if (!money.isPositive()) {
+      throw new DomainError('INVALID_AMOUNT', 'Movimentações exigem valor positivo.');
+    }
+
     // Valida o novo saldo antes de alterar o objeto: uma aposta rejeitada não consome versão.
-    const balanceAfter = direction === 'DEBIT' ? this.balance.subtract(money) : this.balance.add(money);
-    if (balanceAfter.isNegative()) throw new DomainError('INSUFFICIENT_FUNDS', 'Saldo insuficiente.');
+    const balanceAfter =
+      direction === 'DEBIT' ? this.balance.subtract(money) : this.balance.add(money);
+
+    if (balanceAfter.isNegative()) {
+      throw new DomainError('INSUFFICIENT_FUNDS', 'Saldo insuficiente.');
+    }
+
     const at = context.at ?? new Date();
     // A mesma movimentação produz saldo, versão e lançamento; o caso de uso persiste os três
     // na mesma transação SQL. Retornar o lançamento não o grava automaticamente no banco.
-    const entry = WalletLedgerEntry.create({ id: context.id, transactionId: context.transactionId, walletId: this.id, direction, money, balanceBefore: this.balance, balanceAfter, sequence: this.version + 1, createdAt: at });
-    this._balance = balanceAfter; this._version++; this.updateTimestamp = at.getTime();
+    const entry = WalletLedgerEntry.create({
+      id: context.id,
+      transactionId: context.transactionId,
+      walletId: this.id,
+      direction,
+      money,
+      balanceBefore: this.balance,
+      balanceAfter,
+      sequence: this.version + 1,
+      createdAt: at,
+    });
+    this._balance = balanceAfter;
+    this._version++;
+    this.updateTimestamp = at.getTime();
+
     return entry;
   }
 }
