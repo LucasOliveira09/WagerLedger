@@ -259,7 +259,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T28 — Provar pelo menos três processos
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: três PIDs reais (11444/8848/20776 na execução registrada), todos com trabalho e role limitada, processaram 60 mensagens incluindo 50 duplicatas, disputa 100/80/80, refunds simultâneos, carteiras independentes e referência fora de ordem; reinício e sete reconciliações passaram.
 - Dependências: T15, T19, T26, T27.
 - Aceite: Três ou mais processos, carteiras compartilhadas/distintas e reversões simultâneas; referência fora de ordem resolve; reinício preserva reconciliação.
 - Verificação: bun run test:concurrency -- tests/concurrency/multi-process.test.ts; registrar número real de PIDs.
