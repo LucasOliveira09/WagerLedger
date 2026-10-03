@@ -14,7 +14,7 @@ Use a [metodologia](LOAD_TESTING.md) para reproduzir e interpretar os campos.
 | Memória do host | 17.106.477.056 bytes, aproximadamente 15,93 GiB |
 | Docker Engine | 29.6.1; 12 CPUs; 8.289.210.368 bytes, aproximadamente 7,72 GiB |
 | Runtime | Bun 1.4.2; TypeScript 5.9.3; NestJS 12.1.2; MikroORM 7.2.3 |
-| Serviços | PostgreSQL 18; MiniStack 1.5.18; imagens fixadas por digest no Compose |
+| Serviços | PostgreSQL 18.6; MiniStack 1.5.18; imagens fixadas por digest no Compose |
 | Processos | Gerador, API e publisher em três PIDs distintos, na mesma máquina |
 | Revisão do harness | `5e8fc3cf4b0e08a92c15de827aad64192d9311ae` |
 | Modelo | Fechado, oito clientes; uma API e um publisher |
@@ -24,7 +24,7 @@ Use a [metodologia](LOAD_TESTING.md) para reproduzir e interpretar os campos.
 | Limites | 10.000 requisições; timeout 15s; cada espera de drenagem até 60s |
 | Distribuição | Uma carteira ou 16 carteiras; histórico de zero ou 100 BETs por carteira |
 
-Os relatórios registram PostgreSQL efetivo como `18`. Recursos do Docker são
+Os relatórios registram PostgreSQL efetivo como `18.6`. Recursos do Docker são
 compartilhados pelos containers; não equivalem a recursos dedicados por serviço.
 A execução sem histórico começou às `19:05:48.691Z` e terminou às
 `19:06:42.913Z`; a execução com histórico foi de `19:07:59.911Z` a
