@@ -1,7 +1,7 @@
 # Tarefas — WagerLedger
 
-Estado: execução em andamento; tarefas concluídas carregam evidências.
-Comandos de tarefas pendentes são alvos futuros até seus scripts serem validados.
+Estado: T01–T31 concluídas e verificadas em 03/10/2026.
+As tarefas registram os critérios e as evidências da entrega implementada.
 Cada tarefa deve terminar em verificação e commit coerente. Arquivos são previsões;
 se o incremento ultrapassar cinco arquivos ou dois subsistemas independentes,
 dividi-lo antes de implementar.
@@ -286,7 +286,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T31 — Validar entrega reproduzível
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: clone local separado instalado com lockfile congelado; lint/tipos/build, migrations/filas e suíte completa passaram (63 testes, 353 assertions, 41 arquivos); API/worker do clone executaram a demonstração com saldo 100.00, sete lançamentos e reconciliação 0.00; README, arquitetura e docs/VALIDATION.md atualizados; revisão independente das correções sem bloqueadores.
 - Dependências: T28, T29, T30.
 - Aceite: Clone/setup com comandos reais; build/lint/tipos e todas as suites passam; README/arquitetura listam decisões, limites e demonstração.
 - Verificação: bun run lint; bun run typecheck; bun run build; bun run test:unit; bun run test:integration; bun run test:concurrency; bun run test:recovery.

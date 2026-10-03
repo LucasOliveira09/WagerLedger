@@ -18,6 +18,14 @@ distribuídos em 41 arquivos**. Lint, tipos e build também passaram.
 Os resultados são evidência local de correção; não constituem benchmark ou
 validação de um deployment na AWS.
 
+Também foi criado um clone local separado dos arquivos versionados, com
+`bun install --frozen-lockfile` e uma cópia de `.env.example`. Nesse clone,
+Compose, migrations, inicialização de filas, lint, tipos, build e os 63 testes
+passaram. API e worker inicializados a partir do clone executaram a demonstração
+com sucesso. Essa verificação reutilizou a infraestrutura Docker local; os testes
+criaram bancos e filas próprios, com as três migrations aplicadas desde zero.
+O PRD autoral estava presente no clone; o enunciado original ignorado estava ausente.
+
 Os testes usam bancos e filas temporários reais. O harness cria cada banco
 com prefixo `wagerledger_test_` e UUID validado, aplica as migrations e remove
 somente esse recurso. Filas também têm nomes únicos. A role limitada é utilizada
