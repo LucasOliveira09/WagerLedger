@@ -91,7 +91,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T10 — Definir eventos concretos de processamento
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 21 testes unitários cumulativos passaram; envelopes versionados com eventId estável, tipo concreto e snapshots JSON independentes de Money.
 - Dependências: T06.
 - Aceite: Envelope abstrato com IDs/contexto/version; eventos Processed/Rejected/PendingReference com payload JSON estável.
 - Verificação: bun run test:unit -- tests/unit/wager-events.test.ts.
