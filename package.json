@@ -14,6 +14,7 @@
     "lint": "bun x --bun eslint .",
     "start:dev": "bun --watch src/main.ts",
     "start:api": "bun src/main.ts",
+    "start:worker": "bun src/main-worker.ts",
     "migration:up": "bun scripts/migrate.ts up",
     "migration:down": "bun scripts/migrate.ts down",
     "queues:init": "bun scripts/init-queues.ts",
