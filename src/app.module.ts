@@ -12,13 +12,17 @@ import { FinancialQueries } from './application/financial-queries.js';
 import { MikroFinancialReadStore } from './infrastructure/persistence/mikro-financial-read-store.js';
 import { ReconcileWallet } from './application/reconcile-wallet.js';
 import { telemetry } from './infrastructure/observability/telemetry.js';
+import { HealthService } from './infrastructure/observability/health-service.js';
+import { HealthController } from './interfaces/http/health-controller.js';
+import { createSqsClient } from './infrastructure/messaging/sqs-client.js';
 
 @Module({})
 export class AppModule {
-  static register(databaseUrl?: string): DynamicModule {
+  static register(databaseUrl?: string, sqsEndpoint?: string): DynamicModule {
     return {
-      module: AppModule, imports: [MikroOrmModule.forRoot(ormOptions(databaseUrl))], controllers: [WalletController, WagerController, ProviderTransactionController],
+      module: AppModule, imports: [MikroOrmModule.forRoot(ormOptions(databaseUrl))], controllers: [WalletController, WagerController, ProviderTransactionController, HealthController],
       providers: [
+        { provide: HealthService, useFactory: (orm: MikroORM) => new HealthService(orm, createSqsClient(sqsEndpoint)), inject: [MikroORM] },
         { provide: ReconcileWallet, useFactory: (orm: MikroORM) => new ReconcileWallet(new MikroFinancialReadStore(orm), telemetry), inject: [MikroORM] },
         { provide: FinancialQueries, useFactory: (orm: MikroORM) => new FinancialQueries(new MikroFinancialReadStore(orm)), inject: [MikroORM] },
         { provide: MikroFinancialUnitOfWork, useFactory: (orm: MikroORM) => new MikroFinancialUnitOfWork(orm, telemetry), inject: [MikroORM] },
