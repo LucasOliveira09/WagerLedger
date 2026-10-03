@@ -1,0 +1,25 @@
+name: wagerledger
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_DB: wagerledger
+      POSTGRES_USER: wagerledger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wagerledger -d wagerledger"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  sqs:
+    image: ministackorg/ministack:1.5.18@sha256:451a0cc80a4f464e1c2d2f77fbb40ac37d01902d58ca3630ac5eaea9c92f12da
+    environment:
+      SERVICES: sqs
+    ports:
+      - "127.0.0.1:14566:4566"
+volumes:
+  postgres-data:

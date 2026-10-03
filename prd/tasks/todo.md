@@ -26,7 +26,8 @@ dividi-lo antes de implementar.
 
 ## T03 — Provar PostgreSQL e SQS em Compose
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: PostgreSQL 18 saudável; MiniStack 1.5.18 passou teste real de FIFO/dedup/redelivery/DLQ; imagens por digest e filas inicializadas.
 - Dependências: T01.
 - Aceite: Imagens fixadas; PostgreSQL responde; FIFO, visibilidade, redelivery e DLQ comprovados no emulador escolhido.
 - Verificação: docker compose config; docker compose up -d; bun run test:integration -- tests/integration/sqs-capabilities.test.ts.
