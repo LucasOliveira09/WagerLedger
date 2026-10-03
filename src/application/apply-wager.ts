@@ -19,10 +19,11 @@ export async function applyWager(session: FinancialSession, tx: WagerTransaction
   else if (tx.money.currency !== wallet.currency) tx.reject('CURRENCY_MISMATCH');
   else if (tx.referenceExternalTransactionId) {
     reference = (await session.transactionByExternal(tx.providerId, tx.referenceExternalTransactionId))?.transaction;
-    if (!reference || !reference.isTerminal()) { tx.markPendingReference(); awaitingReference = true; }
+    if (!reference) { tx.markPendingReference(); awaitingReference = true; }
     else {
       const failure = referenceFailure(tx, reference);
-      if (failure) tx.reject(failure);
+      if (failure === 'REFERENCE_NOT_PROCESSED' && !reference.isTerminal()) { tx.markPendingReference(); awaitingReference = true; }
+      else if (failure) tx.reject(failure);
       else if ((tx.kind === 'REFUND' || tx.kind === 'ROLLBACK') && await session.reversalExists(reference.id, tx.kind)) tx.reject('REVERSAL_ALREADY_APPLIED');
     }
   }

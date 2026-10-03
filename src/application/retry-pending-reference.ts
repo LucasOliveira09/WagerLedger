@@ -1,6 +1,7 @@
 import { applyWager } from './apply-wager.js';
 import { OutboxMessage } from '../domain/outbox-message.js';
 import { WagerTransactionRejected } from '../domain/events/wager-transaction-rejected.js';
+import { referenceFailure } from '../domain/reference-rules.js';
 import type { FinancialUnitOfWork } from './ports/financial-unit-of-work.js';
 import { nullTelemetry } from './ports/telemetry.js';
 import type { Telemetry } from './ports/telemetry.js';
@@ -23,7 +24,8 @@ export class RetryPendingReference {
       const expired = now.getTime() - tx.createdAt.getTime() >= this.policy.ttlMs;
       const reference = await session.transactionByExternal(tx.providerId, tx.referenceExternalTransactionId!);
       const context = { correlationId: `reference:${tx.id}`, causationId: tx.id };
-      if (!expired && reference?.transaction.isTerminal()) {
+      const incompatible = reference && referenceFailure(tx, reference.transaction) === 'REFERENCE_MISMATCH';
+      if (!expired && (reference?.transaction.isTerminal() || incompatible)) {
         await session.scheduleReference(tx.id, attempts, undefined);
         await applyWager(session, tx, context);
       } else if (expired || attempts >= this.policy.maxAttempts) {
