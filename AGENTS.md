@@ -1,7 +1,8 @@
 # Regras do projeto
 
 - Use `prd/README.md` como referência local dos requisitos e do escopo.
-- Mantenha `prd/` no `.gitignore`; não force sua inclusão no Git.
+- Versione o PRD autoral e seu planejamento em `prd/`.
+- Mantenha o enunciado original em `readme_da_vaga/`, ignorado pelo Git; não force sua inclusão.
 - Registre cada alteração concluída e verificada em um commit de escopo coerente.
 - Mantenha o prefixo do commit em inglês (`feat`, `fix`, `docs`, `chore`, `refactor`, `test` etc.).
 - Escreva a descrição e o corpo do commit em português, com texto claro e profissional.
