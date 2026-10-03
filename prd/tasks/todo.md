@@ -183,7 +183,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T20 — Consultar carteira, transações e ledger
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: quatro GETs testados via HTTP real; consultas interna/externa consistentes; cursor ligado à carteira com limite superior fixado exclui inserções posteriores; cursor cruzado, limites inválidos e ausência rejeitados.
 - Dependências: T17.
 - Aceite: Todos os GET do PRD disponíveis; cursor opaco com ordem total e limite validado; consultas de transação interna/externa consistentes.
 - Verificação: bun run test:integration -- tests/integration/queries.test.ts; cursor sob inserções concorrentes.
