@@ -3,6 +3,7 @@ import type { WagerTransaction } from '../../domain/wager-transaction.js';
 import type { WalletLedgerEntry } from '../../domain/wallet-ledger-entry.js';
 import type { OutboxMessage } from '../../domain/outbox-message.js';
 import type { SubmissionResult } from '../transaction-result.js';
+import type { InboxMessage } from '../../domain/inbox-message.js';
 
 export interface FinancialSession {
   readonly wallet: Wallet | undefined;
@@ -16,6 +17,8 @@ export interface FinancialSession {
   reversalExists(referenceId: string, kind: 'REFUND' | 'ROLLBACK'): Promise<boolean>;
   transactionById(id: string): Promise<StoredTransaction | undefined>;
   scheduleReference(id: string, attempts: number, nextAttemptAt: Date | undefined): Promise<void>;
+  inbox(messageId: string, consumerName: string): Promise<InboxMessage | undefined>;
+  saveInbox(message: InboxMessage): Promise<void>;
 }
 export interface StoredTransaction { transaction: WagerTransaction; snapshot: SubmissionResult | null; referenceAttempts?: number; nextAttemptAt?: Date }
 export interface FinancialUnitOfWork {

@@ -9,6 +9,7 @@ import type { WagerTransaction } from '../../domain/wager-transaction.js';
 import type { WalletLedgerEntry } from '../../domain/wallet-ledger-entry.js';
 import type { OutboxMessage } from '../../domain/outbox-message.js';
 import type { SubmissionResult } from '../../application/transaction-result.js';
+import { InboxMessage } from '../../domain/inbox-message.js';
 
 class MikroFinancialSession implements FinancialSession {
   constructor(private readonly em: EntityManager, public readonly wallet: Wallet | undefined) {}
@@ -62,6 +63,14 @@ class MikroFinancialSession implements FinancialSession {
     const row = await this.em.findOneOrFail(TransactionRecord, { id });
     this.em.assign(row, { referenceAttempts: attempts, nextAttemptAt: nextAttemptAt ?? null });
     await this.em.flush();
+  }
+  async inbox(messageId: string, consumerName: string): Promise<InboxMessage | undefined> {
+    const rows = await this.em.execute<{ payload_hash: string; received_at: Date; processed_at: Date | null }[]>('select payload_hash,received_at,processed_at from inbox_messages where message_id=? and consumer_name=?', [messageId, consumerName]);
+    const row = rows[0];
+    return row ? InboxMessage.rehydrate({ messageId, consumerName, payloadHash: row.payload_hash, receivedAt: new Date(row.received_at), ...(row.processed_at ? { processedAt: new Date(row.processed_at) } : {}) }) : undefined;
+  }
+  async saveInbox(message: InboxMessage): Promise<void> {
+    await this.em.execute('insert into inbox_messages(message_id,consumer_name,payload_hash,received_at,processed_at) values(?,?,?,?,?)', [message.messageId, message.consumerName, message.payloadHash, message.receivedAt, message.processedAt ?? null]);
   }
 }
 
