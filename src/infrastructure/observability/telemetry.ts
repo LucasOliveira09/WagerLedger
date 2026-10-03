@@ -11,7 +11,7 @@ export class StructuredTelemetry implements Telemetry {
   count(name: string, labels?: MetricLabels): void { this.add(series(name, labels), 1); }
   observe(name: string, value: number, labels: MetricLabels = {}): void {
     this.add(series(`${name}_count`, labels), 1); this.add(series(`${name}_sum`, labels), value);
-    for (const bound of [...bounds, Infinity]) if (value <= bound) this.add(series(`${name}_bucket`, { ...labels, le: bound === Infinity ? '+Inf' : String(bound) }), 1);
+    for (const bound of [...bounds, Infinity]) this.add(series(`${name}_bucket`, { ...labels, le: bound === Infinity ? '+Inf' : String(bound) }), value <= bound ? 1 : 0);
   }
   gauge(name: string, value: number): void { this.values.set(series(name), value); }
   log(level: 'info' | 'warn' | 'error', event: string, context: LogContext): void {

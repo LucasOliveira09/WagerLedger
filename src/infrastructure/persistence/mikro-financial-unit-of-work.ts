@@ -10,6 +10,8 @@ import type { WalletLedgerEntry } from '../../domain/wallet-ledger-entry.js';
 import type { OutboxMessage } from '../../domain/outbox-message.js';
 import type { SubmissionResult } from '../../application/transaction-result.js';
 import { InboxMessage } from '../../domain/inbox-message.js';
+import { nullTelemetry } from '../../application/ports/telemetry.js';
+import type { Telemetry } from '../../application/ports/telemetry.js';
 
 class MikroFinancialSession implements FinancialSession {
   constructor(private readonly em: EntityManager, public readonly wallet: Wallet | undefined) {}
@@ -75,7 +77,7 @@ class MikroFinancialSession implements FinancialSession {
 }
 
 export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
-  constructor(private readonly orm: MikroORM) {}
+  constructor(private readonly orm: MikroORM, private readonly telemetry: Telemetry = nullTelemetry) {}
 
   async run<T>(walletId: string | undefined, operation: (session: FinancialSession) => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
@@ -85,7 +87,9 @@ export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
           await em.execute("SET LOCAL statement_timeout = '5s'");
           let wallet: Wallet | undefined;
           if (walletId) {
+            const lockStarted = performance.now();
             const record = await em.findOne(WalletRecord, { id: walletId }, { lockMode: LockMode.PESSIMISTIC_WRITE });
+            this.telemetry.observe('wallet_lock_wait_seconds', (performance.now() - lockStarted) / 1000);
             if (!record) throw new DomainError('WALLET_NOT_FOUND', 'Carteira inexistente.');
             wallet = rehydrateWallet(record);
           }
@@ -93,7 +97,9 @@ export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
         }, { clear: true });
       } catch (error) {
         const code = error !== null && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+        if (['40P01', '55P03'].includes(code)) this.telemetry.count('lock_conflicts_total', { code });
         if (attempt >= 2 || !['40P01', '40001', '55P03', '23505'].includes(code)) throw error;
+        this.telemetry.count('database_retries_total', { code });
         await Bun.sleep(20 * 2 ** attempt);
       }
     }

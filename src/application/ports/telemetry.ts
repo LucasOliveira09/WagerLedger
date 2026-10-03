@@ -6,3 +6,4 @@ export interface Telemetry {
   gauge(name: string, value: number): void;
   log(level: 'info' | 'warn' | 'error', event: string, context: LogContext): void;
 }
+export const nullTelemetry: Telemetry = Object.freeze({ count() {}, observe() {}, gauge() {}, log() {} });
