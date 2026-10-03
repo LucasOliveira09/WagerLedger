@@ -18,6 +18,7 @@ export async function createTestDatabase() {
   return {
     orm,
     url: url.toString(),
+    appUrl: (() => { const appUrl = new URL(url); appUrl.username = 'wagerledger_app'; return appUrl.toString(); })(),
     async close() {
       await orm.close();
       await owner.em.fork().execute(`DROP DATABASE "${name}" WITH (FORCE)`);
