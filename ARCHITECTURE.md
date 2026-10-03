@@ -16,8 +16,9 @@ transação, ledger, inbox e outbox consistentes. A janela de entrega é de
 
 Os exemplos e cenários financeiros usam BRL. Money valida códigos de moeda
 e rejeita operações entre moedas distintas; não há conversão cambial.
-Frontend, partidas dobradas, dashboard, OpenTelemetry e teste de carga
-ficaram fora do escopo desta entrega.
+Frontend, partidas dobradas, dashboard e OpenTelemetry ficaram fora do escopo.
+O teste de carga foi acrescentado depois da entrega principal, como experimento
+local opcional com recursos próprios e auditoria financeira.
 
 ## Decisões adotadas
 
@@ -227,8 +228,17 @@ Prometheus incluído no Compose.
 
 ## Limites da entrega
 
+O experimento `test:load` usa HTTP em modelo fechado, com gerador Bun, API e
+publisher em processos separados e PostgreSQL/SQS emulado compartilhando o host.
+Compara carteira disputada com carteiras independentes e permite preparar
+histórico. Deltas de métricas excluem aquecimento; a auditoria final confere
+saldo/ledger, versão e os dois eventos de cada movimento. Não usa uma meta
+arbitrária de RPS para aprovar. A [metodologia](docs/LOAD_TESTING.md) e os
+[resultados locais](docs/LOAD_RESULTS.md) delimitam essa evidência; não são
+validação de capacidade na AWS ou de chegada constante de requisições.
+
 As validações locais usam PostgreSQL e SQS emulado com subprocessos reais.
-Não houve implantação na AWS, teste de carga, teste de partição prolongada de
+Não houve implantação na AWS ou teste de partição prolongada de
 rede nem integração com um IdP. A janela de visibilidade padrão é de 30 segundos;
 operações excepcionalmente longas podem receber entrega concorrente, resolvida
 pelos locks e pela idempotência persistente. Não há heartbeat de extensão da

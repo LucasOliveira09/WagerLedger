@@ -222,6 +222,10 @@ migration precisa poder criar esses bancos. Eles iniciam seus próprios processo
 API e worker manuais são necessários apenas para a demonstração.
 
 Os cenários e limites da validação estão em [docs/VALIDATION.md](docs/VALIDATION.md).
+O experimento opcional `bun run test:load` inicia API/publisher próprios e mede
+carteira disputada e carteiras independentes. Consulte a
+[metodologia e configuração](docs/LOAD_TESTING.md) e os
+[resultados locais](docs/LOAD_RESULTS.md); o benchmark completo não entra em `bun test`.
 Para desenvolvimento, `bun run start:dev` habilita watch. `migration:down`
 reverte a última migration e destina-se à manutenção do schema.
 `bun run docs:generate` regenera a especificação OpenAPI e os arquivos do Postman.
@@ -236,9 +240,9 @@ mantém eventos recuperáveis após a confirmação financeira.
 Esta entrega adia autenticação com IdP, conforme o escopo acordado. A porta
 `ProviderIdentityPort` está ligada à API com um adaptador sem autenticação;
 a integração futura está descrita em [ARCHITECTURE.md](ARCHITECTURE.md).
-Não há conversão cambial, partidas dobradas, teste de carga, dashboard ou
-OpenTelemetry. As garantias testadas são de correção e recuperação, sem uma
-meta de throughput comprovada.
+Não há conversão cambial, partidas dobradas, dashboard ou OpenTelemetry.
+As garantias testadas são de correção e recuperação; a medição de carga local
+não estabelece capacidade ou uma meta de throughput em produção.
 
 - [Arquitetura e trade-offs](ARCHITECTURE.md).
 - [Guia do código e da estrutura](docs/GUIA_DO_CODIGO.md).
