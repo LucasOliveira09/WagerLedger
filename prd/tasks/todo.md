@@ -73,7 +73,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T08 — Completar schema transacional e de mensageria
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: unicidade de key/identidade externa/inbox, estados terminais e migrations up/down testados; role da aplicação sem TRUNCATE; schema de inbox/outbox e mappings exatos criados.
 - Dependências: T06, T07.
 - Aceite: Constraints de idempotência, identidade externa, inbox e reversão por tipo; outbox e snapshots persistidos; status/valores/FKs verificados.
 - Verificação: bun run test:integration -- tests/integration/transaction-schema.test.ts; round-trip de mappings.
