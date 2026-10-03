@@ -277,7 +277,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T30 — Documentar extensão de identidade sem IdP
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: porta explícita/no-op ligada à submissão HTTP, desenho OIDC e autorização futura documentados; provedor reservado/vazio/inválido rejeitado no domínio; testes unitários e HTTP passaram, health continua aberto.
 - Dependências: T14.
 - Aceite: Decisão aceita de adiar IdP; porta de identidade explícita e desenho OIDC; health aberto; provider ainda validado no domínio.
 - Verificação: Revisão de ARCHITECTURE.md; teste das validações de identidade existentes; bun run typecheck.

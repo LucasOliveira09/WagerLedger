@@ -15,6 +15,7 @@ import { telemetry } from './infrastructure/observability/telemetry.js';
 import { HealthService } from './infrastructure/observability/health-service.js';
 import { HealthController } from './interfaces/http/health-controller.js';
 import { createSqsClient } from './infrastructure/messaging/sqs-client.js';
+import { DeclaredProviderIdentity, ProviderIdentityPort } from './application/ports/provider-identity.js';
 
 @Module({})
 export class AppModule {
@@ -22,6 +23,7 @@ export class AppModule {
     return {
       module: AppModule, imports: [MikroOrmModule.forRoot(ormOptions(databaseUrl))], controllers: [WalletController, WagerController, ProviderTransactionController, HealthController],
       providers: [
+        { provide: ProviderIdentityPort, useClass: DeclaredProviderIdentity },
         { provide: HealthService, useFactory: (orm: MikroORM) => new HealthService(orm, createSqsClient(sqsEndpoint)), inject: [MikroORM] },
         { provide: ReconcileWallet, useFactory: (orm: MikroORM) => new ReconcileWallet(new MikroFinancialReadStore(orm), telemetry), inject: [MikroORM] },
         { provide: FinancialQueries, useFactory: (orm: MikroORM) => new FinancialQueries(new MikroFinancialReadStore(orm)), inject: [MikroORM] },

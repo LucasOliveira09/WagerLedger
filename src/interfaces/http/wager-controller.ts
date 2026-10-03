@@ -3,16 +3,19 @@ import { ProcessWager } from '../../application/process-wager.js';
 import { parseWager } from '../contracts/wager.dto.js';
 import { correlationInput, stringInput, uuidInput } from '../contracts/input-validation.js';
 import { FinancialQueries } from '../../application/financial-queries.js';
+import { ProviderIdentityPort } from '../../application/ports/provider-identity.js';
 
 @Controller('wagering/transactions')
 export class WagerController {
-  constructor(@Inject(ProcessWager) private readonly processWager: ProcessWager, @Inject(FinancialQueries) private readonly queries: FinancialQueries) {}
+  constructor(@Inject(ProcessWager) private readonly processWager: ProcessWager, @Inject(FinancialQueries) private readonly queries: FinancialQueries, @Inject(ProviderIdentityPort) private readonly identity: ProviderIdentityPort) {}
   @Get(':transactionId')
   get(@Param('transactionId') id: string) { return this.queries.transaction(uuidInput(id, 'transactionId')); }
   @Post()
   async submit(@Body() input: unknown, @Headers('idempotency-key') key: string | undefined,
-    @Headers('x-correlation-id') correlationId: string | undefined, @Res({ passthrough: true }) response: { status(code: number): unknown }) {
-    const result = await this.processWager.execute(parseWager(input), stringInput(key, 'Idempotency-Key', 256), { correlationId: correlationInput(correlationId) });
+    @Headers('x-correlation-id') correlationId: string | undefined, @Headers('authorization') authorization: string | undefined, @Res({ passthrough: true }) response: { status(code: number): unknown }) {
+    const parsed = parseWager(input);
+    await this.identity.assertIdentity({ declaredProviderId: parsed.providerId, ...(authorization ? { authorization } : {}) });
+    const result = await this.processWager.execute(parsed, stringInput(key, 'Idempotency-Key', 256), { correlationId: correlationInput(correlationId) });
     response.status(result.statusCode);
     return result.body;
   }

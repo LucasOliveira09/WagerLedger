@@ -139,6 +139,15 @@ e priorizar os requisitos pontuados. A implementação deverá manter uma porta
 explícita de identidade para futura integração OIDC. Health continua aberto;
 mensagens internas continuam sujeitas à validação da identidade de domínio.
 
+A porta ProviderIdentityPort recebe o provider declarado e o header Authorization;
+DeclaredProviderIdentity é explicitamente no-op nesta entrega, sem autenticação.
+Um adaptador OIDC deverá verificar assinatura via JWKS, issuer, audience,
+expiração e escopos do token emitido pelo IdP externo, mapear a identidade
+verificada para um providerId e rejeitar divergências com o payload. Os GETs e
+criação de carteira deverão receber guards/autorizações de escopo apropriado;
+health permanece aberto. SQS é canal interno com permissão IAM separada e mantém
+validação de domínio. Nenhum token, credencial ou senha é armazenado pelo domínio.
+
 Logs JSON terão identificadores de correlação, sem payload financeiro completo
 ou credenciais. Métricas cobrirão status, duplicatas, retries, DLQ, locks,
 outbox lag e latência. Liveness e readiness terão verificações distintas.
