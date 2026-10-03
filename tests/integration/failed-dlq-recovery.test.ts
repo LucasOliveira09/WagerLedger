@@ -17,7 +17,7 @@ for (const kind of ['BET', 'REFUND'] as const) test(`DLQ indisponível após FAI
     await queues.client.send(new SendMessageCommand({ QueueUrl: queues.wagers, MessageGroupId: wallet.id, MessageDeduplicationId: 'failure', MessageBody: JSON.stringify({ messageId: 'failure', type: 'WagerTransactionRequested', occurredAt: new Date().toISOString(), data: { ...input, idempotencyKey: 'failure' } }) }));
     const options = { queueUrl: queues.wagers, dlqUrl: queues.dlq, waitTimeSeconds: 0 };
     const message = (await queues.client.send(new ReceiveMessageCommand({ QueueUrl: queues.wagers, MessageSystemAttributeNames: ['All'] }))).Messages![0]!;
-    const failing = new ProcessWager(failAfterWrite(uow, kind === 'REFUND' ? 'saveInbox' : 'appendLedger', Object.assign(new Error('Falha permanente.'), { code: '23514' })));
+    const failing = new ProcessWager(failAfterWrite(uow, kind === 'REFUND' ? 'saveInbox' : 'appendLedger', Object.assign(new Error('Falha permanente.'), { code: '23514' }), 1));
     await expect(new WagerConsumer(queues.client, failing, { ...options, dlqUrl: queues.dlq.replace(/[^/]+$/, 'nonexistent.fifo') }).handle(message)).rejects.toThrow();
     expect((await db.orm.em.fork().execute<{ status: string }[]>("select status from wager_transactions where external_transaction_id='failure'"))[0]!.status).toBe('FAILED');
     await queues.client.send(new ChangeMessageVisibilityCommand({ QueueUrl: queues.wagers, ReceiptHandle: message.ReceiptHandle!, VisibilityTimeout: 0 }));
