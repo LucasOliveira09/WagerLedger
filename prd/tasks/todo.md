@@ -17,7 +17,8 @@ dividi-lo antes de implementar.
 
 ## T02 — Definir verificação estática e scripts
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: lint, TypeScript estrito e build passaram executando os CLIs com Bun; scripts por suite definidos e finais de linha padronizados em LF.
 - Dependências: T01.
 - Aceite: Typecheck estrito e lint funcionam; scripts de teste distinguem suites; build não depende de Node como runtime da aplicação.
 - Verificação: bun run typecheck; bun run lint; bun run build.

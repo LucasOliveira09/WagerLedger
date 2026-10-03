@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.2",
-  "engines": { "bun": "1.4.2" },
+  "engines": {
+    "bun": "1.4.2"
+  },
   "scripts": {
-    "build": "bun x tsc -p tsconfig.build.json",
-    "typecheck": "bun x tsc --noEmit",
+    "build": "bun x --bun tsc -p tsconfig.build.json",
+    "typecheck": "bun x --bun tsc --noEmit",
+    "lint": "bun x --bun eslint .",
     "start:dev": "bun --watch src/main.ts",
     "start:api": "bun src/main.ts",
     "test:unit": "bun test tests/unit",
@@ -16,6 +19,7 @@
     "test:recovery": "bun test tests/recovery"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "3.1146.0",
     "@mikro-orm/core": "7.2.3",
     "@mikro-orm/migrations": "7.2.3",
     "@mikro-orm/nestjs": "7.1.0",
@@ -28,6 +32,8 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
-    "typescript": "5.9.3"
+    "eslint": "10.12.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0"
   }
 }
