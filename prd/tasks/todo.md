@@ -64,7 +64,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T07 — Criar schema mínimo de wallet e ledger
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: PostgreSQL real validou unicidade, saldo não negativo, igualdade saldo/ledger no commit, imutabilidade e migrations down/up; Money reidratado sem Number.
 - Dependências: T03, T05.
 - Aceite: Migration up/down; Money reidratado exatamente; unicidade player/moeda, saldo não negativo e ledger imutável no banco.
 - Verificação: bun run test:integration -- tests/integration/wallet-schema.test.ts; migration up/down em banco descartável.
