@@ -14,8 +14,10 @@ export interface FinancialSession {
   transactionByKey(key: string): Promise<StoredTransaction | undefined>;
   transactionByExternal(providerId: string, externalTransactionId: string): Promise<StoredTransaction | undefined>;
   reversalExists(referenceId: string, kind: 'REFUND' | 'ROLLBACK'): Promise<boolean>;
+  transactionById(id: string): Promise<StoredTransaction | undefined>;
+  scheduleReference(id: string, attempts: number, nextAttemptAt: Date | undefined): Promise<void>;
 }
-export interface StoredTransaction { transaction: WagerTransaction; snapshot: SubmissionResult | null }
+export interface StoredTransaction { transaction: WagerTransaction; snapshot: SubmissionResult | null; referenceAttempts?: number; nextAttemptAt?: Date }
 export interface FinancialUnitOfWork {
   run<T>(walletId: string | undefined, operation: (session: FinancialSession) => Promise<T>): Promise<T>;
 }

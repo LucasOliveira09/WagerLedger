@@ -53,6 +53,16 @@ class MikroFinancialSession implements FinancialSession {
   async reversalExists(referenceId: string, kind: 'REFUND' | 'ROLLBACK'): Promise<boolean> {
     return (await this.em.count(TransactionRecord, { referenceTransactionId: referenceId, kind, status: 'PROCESSED' })) > 0;
   }
+  async transactionById(id: string) {
+    const row = await this.em.findOne(TransactionRecord, { id });
+    return row ? { transaction: rehydrateTransaction(row), snapshot: row.responseSnapshot as SubmissionResult | null,
+      referenceAttempts: row.referenceAttempts, ...(row.nextAttemptAt ? { nextAttemptAt: row.nextAttemptAt } : {}) } : undefined;
+  }
+  async scheduleReference(id: string, attempts: number, nextAttemptAt: Date | undefined): Promise<void> {
+    const row = await this.em.findOneOrFail(TransactionRecord, { id });
+    this.em.assign(row, { referenceAttempts: attempts, nextAttemptAt: nextAttemptAt ?? null });
+    await this.em.flush();
+  }
 }
 
 export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
