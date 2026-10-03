@@ -50,6 +50,9 @@ class MikroFinancialSession implements FinancialSession {
     const row = await this.em.findOne(TransactionRecord, { providerId, externalTransactionId });
     return row ? { transaction: rehydrateTransaction(row), snapshot: row.responseSnapshot as SubmissionResult | null } : undefined;
   }
+  async reversalExists(referenceId: string, kind: 'REFUND' | 'ROLLBACK'): Promise<boolean> {
+    return (await this.em.count(TransactionRecord, { referenceTransactionId: referenceId, kind, status: 'PROCESSED' })) > 0;
+  }
 }
 
 export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
