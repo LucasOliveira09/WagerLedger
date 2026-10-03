@@ -18,6 +18,8 @@ import { createSqsClient } from './infrastructure/messaging/sqs-client.js';
 import { DeclaredProviderIdentity, ProviderIdentityPort } from './application/ports/provider-identity.js';
 
 @Module({})
+// Ponto de composição da API: NestJS conecta casos de uso às implementações de banco
+// e identidade. O domínio e os casos de uso não precisam importar decorators do framework.
 export class AppModule {
   static register(databaseUrl?: string, sqsEndpoint?: string): DynamicModule {
     return {

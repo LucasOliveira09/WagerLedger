@@ -23,6 +23,8 @@ export interface WorkerOptions {
   metricsPort?: number;
 }
 export async function bootstrapWorkers(options: WorkerOptions = {}) {
+  // Papéis podem compartilhar um processo ou ser distribuídos em instâncias separadas.
+  // A coordenação financeira continua no PostgreSQL, não em memória deste processo.
   const roles = options.roles ?? (process.env.WORKER_ROLES ?? 'consumer,publisher,reference').split(',') as WorkerRole[];
   if (!roles.length || roles.some(role => !['consumer', 'publisher', 'reference'].includes(role))) throw new Error('WORKER_ROLES inválido.');
   const metricsPort = options.metricsPort ?? (process.env.METRICS_PORT === undefined ? undefined : Number(process.env.METRICS_PORT));
@@ -49,6 +51,7 @@ export async function bootstrapWorkers(options: WorkerOptions = {}) {
       if (path === '/metrics') return new Response(telemetry.render(), { headers: { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' } });
       return Response.json({ error: { code: 'NOT_FOUND', message: 'Endpoint inexistente.' } }, { status: 404 });
     } });
+    // Primeiro paramos novas iterações e drenamos as atuais; depois fechamos os clientes.
     const stop = () => lifecycle.requestStop();
     process.on('SIGTERM', stop); process.on('SIGINT', stop);
     const finished = lifecycle.run().finally(async () => {

@@ -2,6 +2,10 @@ import { Migration } from '@mikro-orm/migrations';
 
 export class Migration002 extends Migration {
   override up(): void {
+    // A unicidade global da key e a identidade externa são proteções entre processos.
+    // reversal_once limita uma reversão processada por referência E tipo, não uma no total.
+    // Inbox/outbox ficam neste mesmo banco para participar do commit financeiro.
+    // A role da aplicação tem menos permissões que o usuário usado nas migrations.
     this.addSql(`
       CREATE TABLE wager_transactions (
         id uuid PRIMARY KEY, provider_id varchar(100) NOT NULL, external_transaction_id varchar(200) NOT NULL,

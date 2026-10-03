@@ -2,6 +2,9 @@ import { Migration } from '@mikro-orm/migrations';
 
 export class Migration003 extends Migration {
   override up(): void {
+    // Defesa para gravações SQL que contornem o domínio: valida identidade, referência,
+    // direção, valor e quantidade de lançamentos das operações financeiras processadas.
+    // Também preserva a solicitação original e o envelope da outbox durante atualizações.
     this.addSql(`
       CREATE FUNCTION assert_financial_operation() RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE target_id uuid; current_tx wager_transactions; reference_tx wager_transactions;

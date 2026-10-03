@@ -2,6 +2,9 @@ import { Migration } from '@mikro-orm/migrations';
 
 export class Migration001 extends Migration {
   override up(): void {
+    // CHECK/UNIQUE validam cada linha; o ledger não admite UPDATE/DELETE.
+    // A soma financeira é verificada por triggers adiadas até o commit: saldo e ledger
+    // podem ser escritos em momentos diferentes da mesma transação, nunca confirmados divergentes.
     this.addSql(`
       CREATE TABLE wallets (
         id uuid PRIMARY KEY, player_id uuid NOT NULL, currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
@@ -53,6 +56,7 @@ export class Migration001 extends Migration {
     `);
   }
   override down(): void {
+    // Reversão de schema remove tabelas e seus dados; não é uma operação financeira de estorno.
     this.addSql('DROP TABLE wallet_ledger; DROP TABLE wallets; DROP FUNCTION enforce_wallet_version(); DROP FUNCTION assert_wallet_ledger_balance(); DROP FUNCTION forbid_ledger_mutation();');
   }
 }
