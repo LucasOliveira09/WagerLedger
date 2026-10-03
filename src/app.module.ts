@@ -10,6 +10,8 @@ import { ProviderTransactionController, WagerController } from './interfaces/htt
 import { ProcessWager } from './application/process-wager.js';
 import { FinancialQueries } from './application/financial-queries.js';
 import { MikroFinancialReadStore } from './infrastructure/persistence/mikro-financial-read-store.js';
+import { ReconcileWallet } from './application/reconcile-wallet.js';
+import { telemetry } from './infrastructure/observability/telemetry.js';
 
 @Module({})
 export class AppModule {
@@ -17,6 +19,7 @@ export class AppModule {
     return {
       module: AppModule, imports: [MikroOrmModule.forRoot(ormOptions(databaseUrl))], controllers: [WalletController, WagerController, ProviderTransactionController],
       providers: [
+        { provide: ReconcileWallet, useFactory: (orm: MikroORM) => new ReconcileWallet(new MikroFinancialReadStore(orm), telemetry), inject: [MikroORM] },
         { provide: FinancialQueries, useFactory: (orm: MikroORM) => new FinancialQueries(new MikroFinancialReadStore(orm)), inject: [MikroORM] },
         { provide: MikroFinancialUnitOfWork, useFactory: (orm: MikroORM) => new MikroFinancialUnitOfWork(orm), inject: [MikroORM] },
         { provide: OpenWallet, useFactory: (uow: MikroFinancialUnitOfWork) => new OpenWallet(uow), inject: [MikroFinancialUnitOfWork] },

@@ -1,13 +1,19 @@
-import { Body, Controller, Get, Headers, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
 import { OpenWallet } from '../../application/open-wallet.js';
 import { parseOpenWallet } from './open-wallet.dto.js';
 import { correlationInput, stringInput, uuidInput } from './input-validation.js';
 import { DomainError } from '../../domain/domain-error.js';
 import { FinancialQueries } from '../../application/financial-queries.js';
+import { ReconcileWallet } from '../../application/reconcile-wallet.js';
 
 @Controller('wallets')
 export class WalletController {
-  constructor(@Inject(OpenWallet) private readonly openWallet: OpenWallet, @Inject(FinancialQueries) private readonly queries: FinancialQueries) {}
+  constructor(@Inject(OpenWallet) private readonly openWallet: OpenWallet, @Inject(FinancialQueries) private readonly queries: FinancialQueries, @Inject(ReconcileWallet) private readonly reconcileWallet: ReconcileWallet) {}
+  @Post(':walletId/reconciliation')
+  @HttpCode(200)
+  reconcile(@Param('walletId') walletId: string, @Headers('x-correlation-id') correlationId?: string) {
+    return this.reconcileWallet.execute(uuidInput(walletId, 'walletId'), { correlationId: correlationInput(correlationId) });
+  }
   @Get(':walletId')
   get(@Param('walletId') walletId: string) { return this.queries.wallet(uuidInput(walletId, 'walletId')); }
   @Get(':walletId/ledger')

@@ -15,5 +15,8 @@ test('GETs públicos expõem carteira, ledger e identidades interna/externa', as
     expect((await fetch(`${url}/wallets/${wallet.id}/ledger?limit=1e2`)).status).toBe(400);
     expect((await fetch(`${url}/wallets/not-uuid`)).status).toBe(400);
     expect((await fetch(`${url}/wagering/transactions/${crypto.randomUUID()}`)).status).toBe(404);
+    const reconciliation = await fetch(`${url}/wallets/${wallet.id}/reconciliation`, { method: 'POST' });
+    expect(reconciliation.status).toBe(200);
+    expect(await reconciliation.json()).toMatchObject({ consistent: true, checkedEntries: 2, difference: { amount: '0.00', currency: 'BRL' } });
   } finally { await app.close(); await db.close(); }
 }, 30000);

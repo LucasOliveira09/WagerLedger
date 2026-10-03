@@ -192,7 +192,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T21 — Reconciliar saldo em snapshot consistente
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: abertura incluída; vinte escritas concorrentes não provocaram falsos positivos; corrupção simulada somente pelo dono do banco descartável retornou diferença -3.00, log/métrica e preservou saldo incorreto; POST real validado.
 - Dependências: T20.
 - Aceite: OPENING incluído no cálculo; diferença assinada; divergência sinalizada/logada e não corrigida; escrita concorrente não gera falso positivo.
 - Verificação: bun run test:integration -- tests/integration/reconciliation.test.ts.
