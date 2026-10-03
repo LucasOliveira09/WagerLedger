@@ -127,7 +127,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T14 — Processar BET pelo caso de uso compartilhado
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: débito e rejeição persistidos no PostgreSQL; HTTP real validou chave obrigatória, replay, conflito, insuficiência e exclusão de OPENING público; lint/tipos/build passaram.
 - Dependências: T12, T11, T13.
 - Aceite: BET aplica débito/ledger/outbox atômicos; insuficiência gera rejeição persistida; HTTP distingue processado, inválido, conflito e falha transitória.
 - Verificação: bun run test:integration -- tests/integration/submit-bet.test.ts; bun run build.
