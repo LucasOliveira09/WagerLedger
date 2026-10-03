@@ -3,6 +3,12 @@ export interface LoadConfig {
   warmupRequests: number; maxRequests: number; timeoutSeconds: number; drainSeconds: number;
 }
 export function loadConfig(environment: Readonly<Record<string, string | undefined>> = process.env): LoadConfig {
+  // Este experimento provisiona recursos: limita o alvo ao ambiente local do desafio.
+  for (const name of ['MIGRATION_DATABASE_URL', 'SQS_ENDPOINT']) {
+    if (environment[name] && !['127.0.0.1', 'localhost', '[::1]'].includes(new URL(environment[name]).hostname)) {
+      throw new RangeError(`${name} deve apontar para o ambiente local.`);
+    }
+  }
   const integer = (name: string, fallback: number, minimum: number, maximum: number): number => {
     const value = environment[name] ?? String(fallback);
     if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < minimum || Number(value) > maximum) {

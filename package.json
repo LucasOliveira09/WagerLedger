@@ -23,7 +23,8 @@
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
     "test:concurrency": "bun test tests/concurrency",
-    "test:recovery": "bun test tests/recovery"
+    "test:recovery": "bun test tests/recovery",
+    "test:load": "bun tests/load/run.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "3.1146.0",

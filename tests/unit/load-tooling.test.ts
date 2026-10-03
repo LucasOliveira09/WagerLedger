@@ -9,6 +9,8 @@ test('carga limita recursos e rejeita configuração inválida antes de criar se
     expect(() => loadConfig({ LOAD_CONCURRENCY: value })).toThrow();
   }
   expect(() => loadConfig({ LOAD_MAX_REQUESTS: '100001' })).toThrow();
+  expect(() => loadConfig({ SQS_ENDPOINT: 'https://sqs.us-east-1.amazonaws.com' })).toThrow();
+  expect(() => loadConfig({ MIGRATION_DATABASE_URL: 'postgresql://owner:password@production.example/db' })).toThrow();
 });
 
 test('percentis preservam cauda lenta e não inventam latência sem amostras', () => {
