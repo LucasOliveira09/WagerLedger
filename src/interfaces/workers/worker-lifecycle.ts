@@ -9,6 +9,8 @@ export class WorkerLifecycle {
     this.stopping = true;
     for (const worker of this.workers) worker.requestStop?.();
   }
+  // Os papéis rodam em loops concorrentes. Parar impede a próxima iteração, mas aguarda
+  // o tick em andamento; o consumidor interrompe o long polling pelo próprio AbortController.
   async run(): Promise<void> {
     await Promise.all(this.workers.map(async worker => {
       while (!this.stopping) {

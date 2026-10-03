@@ -39,7 +39,11 @@ export class WagerConsumer {
     } catch (error) {
       const attempt = Number(message.Attributes?.ApproximateReceiveCount ?? '1');
       const context = parsed ? { ...parsed.context, messageId: parsed.messageId, walletId: parsed.input.walletId, providerId: parsed.input.providerId, attempt } : { messageId: message.MessageId ?? 'unknown', attempt };
+      // Rejeições financeiras normais são resultados, não exceções, e seguem para ack.
+      // Aqui tratamos mensagens inválidas/conflitantes e falhas de infraestrutura.
       if (classifyFailure(error) === 'permanent' || attempt >= (this.options.maxAttempts ?? 5)) {
+        // Só uma falha permanente de infraestrutura tenta produzir FAILED auditável.
+        // Esgotar retries temporários não torna a operação terminal: permite redrive futuro.
         if (parsed && !(error instanceof DomainError) && classifyFailure(error) === 'permanent') {
           try { await this.process.recordFailure(parsed.input, parsed.key, parsed.context, { messageId: parsed.messageId, consumerName: 'wager-consumer', payloadHash: parsed.payloadHash }); }
           catch (auditError) { if (!(auditError instanceof DomainError)) throw auditError; }
@@ -51,6 +55,8 @@ export class WagerConsumer {
       }
       return;
     }
+    // execute() só retorna após commit. O hook permite testar uma morte exatamente
+    // entre commit e ack; a redelivery deve virar replay, sem outro efeito financeiro.
     await this.options.onCommitted?.(parsed);
     if (submission.currentStatus === 'FAILED') {
       await this.deadLetter(message, 'AUDITED_FAILURE', { correlationId: parsed.context.correlationId, messageId: parsed.messageId, transactionId: submission.body.transactionId, walletId: parsed.input.walletId, providerId: parsed.input.providerId });
@@ -62,6 +68,8 @@ export class WagerConsumer {
       MessageDeduplicationId: payloadHash({ brokerMessageId: message.MessageId, body: message.Body }),
       MessageAttributes: { failureCode: { DataType: 'String', StringValue: failureCode } },
     }), { abortSignal: AbortSignal.timeout(5000) });
+    // Só removemos a original após confirmar o envio à DLQ. Falha de envio preserva
+    // a possibilidade de receber novamente a mensagem de origem.
     await this.ack(message);
     this.telemetry.count('messages_dlq_total'); this.telemetry.log('warn', 'message_sent_to_dlq', { ...context, code: failureCode });
   }
