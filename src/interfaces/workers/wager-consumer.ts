@@ -6,6 +6,7 @@ import { classifyFailure, retryDelaySeconds } from '../../infrastructure/messagi
 import { payloadHash } from '../../application/canonical-payload.js';
 import { nullTelemetry } from '../../application/ports/telemetry.js';
 import type { Telemetry } from '../../application/ports/telemetry.js';
+import { DomainError } from '../../domain/domain-error.js';
 
 export interface ConsumerOptions {
   queueUrl: string; dlqUrl: string; waitTimeSeconds?: number; visibilitySeconds?: number; maxAttempts?: number;
@@ -37,6 +38,10 @@ export class WagerConsumer {
       const attempt = Number(message.Attributes?.ApproximateReceiveCount ?? '1');
       const context = parsed ? { ...parsed.context, messageId: parsed.messageId, walletId: parsed.input.walletId, providerId: parsed.input.providerId, attempt } : { messageId: message.MessageId ?? 'unknown', attempt };
       if (classifyFailure(error) === 'permanent' || attempt >= (this.options.maxAttempts ?? 5)) {
+        if (parsed && !(error instanceof DomainError)) {
+          try { await this.process.recordFailure(parsed.input, parsed.key, parsed.context, { messageId: parsed.messageId, consumerName: 'wager-consumer', payloadHash: parsed.payloadHash }); }
+          catch (auditError) { if (!(auditError instanceof DomainError)) throw auditError; }
+        }
         await this.client.send(new SendMessageCommand({ QueueUrl: this.options.dlqUrl, MessageBody: message.Body ?? '', MessageGroupId: message.Attributes?.MessageGroupId ?? 'invalid', MessageDeduplicationId: payloadHash({ brokerMessageId: message.MessageId, body: message.Body }), MessageAttributes: { failureCode: { DataType: 'String', StringValue: classifyFailure(error) === 'permanent' ? 'PERMANENT_MESSAGE' : 'RETRY_EXHAUSTED' } } }), { abortSignal: AbortSignal.timeout(5000) });
         await this.ack(message);
         this.telemetry.count('messages_dlq_total'); this.telemetry.log('warn', 'message_sent_to_dlq', { ...context, code: classifyFailure(error) === 'permanent' ? 'PERMANENT_MESSAGE' : 'RETRY_EXHAUSTED' });

@@ -12,6 +12,7 @@ import type { FinancialUnitOfWork } from './ports/financial-unit-of-work.js';
 import type { SubmissionResult } from './transaction-result.js';
 import { nullTelemetry } from './ports/telemetry.js';
 import type { Telemetry } from './ports/telemetry.js';
+import { FailWager } from './fail-wager.js';
 
 export interface WagerInput {
   providerId: string; externalTransactionId: string; walletId: string; playerId: string;
@@ -21,6 +22,9 @@ export interface WagerInput {
 export interface InboxInput { messageId: string; consumerName: string; payloadHash: string }
 export class ProcessWager {
   constructor(private readonly uow: FinancialUnitOfWork, private readonly telemetry: Telemetry = nullTelemetry) {}
+  recordFailure(input: WagerInput, key: string, context: EventContext, transport: InboxInput): Promise<SubmissionResult> {
+    return new FailWager(this.uow, this.telemetry).execute(input, key, context, transport);
+  }
   async execute(input: WagerInput, key: string, context: EventContext, transport?: InboxInput): Promise<SubmissionResult> {
     const money = Money.from(input.money); const hash = payloadHash(input);
     const started = performance.now();
