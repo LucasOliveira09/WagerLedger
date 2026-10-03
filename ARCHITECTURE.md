@@ -79,7 +79,14 @@ e soma do ledger: essa garantia combina transação, lock e testes de reconcilia
 FIFO usará `MessageGroupId = walletId`; a deduplicação do broker é uma otimização.
 Referência ausente será persistida como PENDING_REFERENCE e a mensagem confirmada
 após commit, permitindo que a referência avance na fila. Um worker fará retry
-com backoff e prazo máximo configurável; esgotamento produzirá rejeição auditável.
+com backoff persistido: 1 segundo inicial, exponencial limitado a 5 minutos,
+até 20 tentativas ou 24 horas de TTL, o que ocorrer primeiro. Na ausência de
+interrupções, o limite de tentativas encerra antes do TTL; o TTL limita também
+pendências após indisponibilidade prolongada. Esgotamento gera REFERENCE_NOT_FOUND,
+rejeição e evento no mesmo commit, sem lançamento. A política é injetável para
+testes com relógio controlado. Candidatos são descobertos sem lock; estado e
+agendamento são novamente conferidos sob o lock da carteira. Não há retry
+financeiro apenas porque o cliente repetiu uma submissão já aceita.
 
 Publishers usarão `FOR UPDATE SKIP LOCKED` na outbox. A proposta inicial mantém
 o lock durante uma publicação com timeout curto, marcando publicação no mesmo

@@ -174,7 +174,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T19 — Agendar resolução e expiração de pendências
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: dois workers resolveram a mesma pendência com um ledger; snapshot original preservado; relógio controlado comprovou backoff, respeito ao agendamento e rejeição por limite sem dinheiro; política e ordem de locks documentadas.
 - Dependências: T18.
 - Aceite: Backoff e TTL/limite documentados; múltiplos workers não aplicam duas vezes; expiração gera rejeição/evento, sem deadlock por ordem inversa.
 - Verificação: bun run test:integration -- tests/integration/reference-worker.test.ts; teste concorrente com relógio controlável.
