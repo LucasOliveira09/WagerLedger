@@ -2,9 +2,10 @@
 
 ## Estado
 
-Proposta técnica elaborada em 03/10/2026 a partir do desafio. A aplicação ainda
-não foi implementada; as garantias descritas abaixo precisam ser comprovadas
-pelos testes. Versões de dependências e imagens serão fixadas no bootstrap.
+Implementação iniciada em 03/10/2026. Bootstrap validado com Bun 1.4.2,
+NestJS 12.1.2, MikroORM 7.2.3 e TypeScript 5.9.3. HTTP, DI e inicialização
+do ORM passaram em smoke; as garantias financeiras ainda serão implementadas
+e comprovadas por testes. Imagens de infraestrutura serão fixadas no Compose.
 
 ## Objetivo e limites
 

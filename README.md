@@ -20,8 +20,20 @@ e a compatibilidade serão validadas no bootstrap.
 
 ## Estado atual
 
-Repositório inicializado e requisitos analisados. A aplicação ainda não foi implementada.
-As instruções de instalação, execução e testes serão adicionadas conforme
-os respectivos comandos estiverem disponíveis.
+Bootstrap NestJS validado com Bun 1.4.2. As operações financeiras estão em implementação.
+
+## Desenvolvimento
+
+Instale Bun 1.4.2 e execute:
+
+```sh
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
+bun run start:dev
+```
+
+A API inicia na porta 3000 (`PORT` permite alterar). Os endpoints financeiros
+serão adicionados nos próximos incrementos. Acompanhe [as tarefas](prd/tasks/todo.md).
 
 A proposta técnica, suas decisões e limitações estão em [ARCHITECTURE.md](ARCHITECTURE.md).

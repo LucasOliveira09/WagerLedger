@@ -1,14 +1,15 @@
 # Tarefas — WagerLedger
 
-Estado: planejamento; nenhuma tarefa de implementação concluída.
-Todos os comandos abaixo são alvos futuros, dependentes da criação dos scripts.
+Estado: execução em andamento; tarefas concluídas carregam evidências.
+Comandos de tarefas pendentes são alvos futuros até seus scripts serem validados.
 Cada tarefa deve terminar em verificação e commit coerente. Arquivos são previsões;
 se o incremento ultrapassar cinco arquivos ou dois subsistemas independentes,
 dividi-lo antes de implementar.
 
 ## T01 — Preparar Bun e compatibilidade da stack
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: Bun 1.4.2, NestJS 12.1.2, MikroORM 7.2.3; build/typecheck passaram; servidor HTTP, DI e ORM sem conexão iniciaram em smoke real.
 - Dependências: nenhuma.
 - Aceite: Bun 1.x disponível; versões candidatas de NestJS/MikroORM resolvidas; bootstrap mínimo inicia com DI e decorators.
 - Verificação: bun --version; bun run build; smoke de inicialização com Bun.
