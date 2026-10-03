@@ -37,7 +37,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T04 — Implementar Money exato
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 14 testes unitários passaram; centavos bigint, escala estrita, overflow, sinais e conflitos de moeda comprovados.
 - Dependências: T02.
 - Aceite: Bigint em centavos; factories e operações imutáveis; escala, entradas inválidas, limites e conflitos de moeda testados.
 - Verificação: bun run test:unit -- tests/unit/money.test.ts; bun run typecheck.
