@@ -100,7 +100,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T11 — Definir evento de saldo e modelos de inbox/outbox
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 23 testes unitários cumulativos passaram; evento de saldo valida lançamento, inbox protege estado e outbox possui retry/publicação explícitos.
 - Dependências: T05, T10.
 - Aceite: WalletBalanceChanged somente em mudança; Inbox/Outbox encapsulam transições e retry sem payload mutável.
 - Verificação: bun run test:unit -- tests/unit/message-models.test.ts.
