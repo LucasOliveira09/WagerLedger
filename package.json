@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.2",
+  "trustedDependencies": [],
   "engines": {
     "bun": "1.4.2"
   },
@@ -13,6 +14,9 @@
     "lint": "bun x --bun eslint .",
     "start:dev": "bun --watch src/main.ts",
     "start:api": "bun src/main.ts",
+    "migration:up": "bun scripts/migrate.ts up",
+    "migration:down": "bun scripts/migrate.ts down",
+    "queues:init": "bun scripts/init-queues.ts",
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
     "test:concurrency": "bun test tests/concurrency",
