@@ -136,7 +136,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T15 — Provar corrida de saldo e 50 duplicatas
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 50 submissões paralelas produziram um único débito/dois eventos; disputa 100/80/80 terminou em 20 com uma rejeição; carteira distinta progrediu enquanto outra mantinha lock; saldo/ledger conferidos no SQL. Prova com três processos segue em T28.
 - Dependências: T14.
 - Aceite: Cenário 100/80/80 resulta em saldo 20 e um débito; 50 replays não duplicam; wallets distintas não usam lock global.
 - Verificação: bun run test:concurrency -- tests/concurrency/bet-races.test.ts; reconciliar cada resultado.
