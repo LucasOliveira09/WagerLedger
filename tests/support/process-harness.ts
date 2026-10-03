@@ -1,6 +1,13 @@
 import { fileURLToPath } from 'node:url';
 
 export interface Notice { event: string; pid: number; id?: string }
+export async function eventually(check: () => Promise<boolean>, milliseconds = 15000): Promise<void> {
+  const until = Date.now() + milliseconds;
+  while (!await check()) {
+    if (Date.now() >= until) throw new Error('Condição não atingida no prazo.');
+    await Bun.sleep(25);
+  }
+}
 export function deadline<T>(promise: Promise<T>, milliseconds = 15000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Prazo do processo de teste excedido.')), milliseconds);

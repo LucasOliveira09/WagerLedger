@@ -5,13 +5,14 @@ import { OutboxMessage } from '../../domain/outbox-message.js';
 
 interface OutboxRow { id: string; aggregate_id: string; event_type: string; payload: EventEnvelope<unknown>; occurred_at: Date; attempts: number; next_attempt_at: Date | null }
 export class OutboxPublisher {
-  constructor(private readonly orm: MikroORM, private readonly publisher: EventPublisher, private readonly afterPublished?: (message: OutboxMessage) => Promise<void>) {}
+  constructor(private readonly orm: MikroORM, private readonly publisher: EventPublisher, private readonly afterPublished?: (message: OutboxMessage) => Promise<void>, private readonly beforePublish?: (message: OutboxMessage) => Promise<void>) {}
   async tick(now = new Date()): Promise<boolean> {
     return this.orm.em.fork().transactional(async em => {
       await em.execute("SET LOCAL statement_timeout = '10s'");
       const rows = await em.execute<OutboxRow[]>("select * from outbox_messages where published_at is null and (next_attempt_at is null or next_attempt_at<=?) order by occurred_at,id limit 1 for update skip locked", [now]);
       const row = rows[0]; if (!row) return false;
       const message = OutboxMessage.rehydrate({ id: row.id, aggregateId: row.aggregate_id, eventType: row.event_type, payload: row.payload, occurredAt: new Date(row.occurred_at), attempts: row.attempts, ...(row.next_attempt_at ? { nextAttemptAt: new Date(row.next_attempt_at) } : {}) });
+      await this.beforePublish?.(message);
       try {
         await this.publisher.publish(message, AbortSignal.timeout(5000));
       } catch {

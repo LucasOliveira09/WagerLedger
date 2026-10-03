@@ -18,6 +18,7 @@ type WorkerRole = 'consumer' | 'publisher' | 'reference';
 export interface WorkerOptions {
   databaseUrl?: string; queueUrls?: { wagers: string; dlq: string; events: string }; roles?: readonly WorkerRole[];
   waitTimeSeconds?: number; visibilitySeconds?: number; onCommitted?: ConsumerOptions['onCommitted']; onPublished?: (message: OutboxMessage) => Promise<void>;
+  beforePublish?: (message: OutboxMessage) => Promise<void>;
 }
 export async function bootstrapWorkers(options: WorkerOptions = {}) {
   const roles = options.roles ?? (process.env.WORKER_ROLES ?? 'consumer,publisher,reference').split(',') as WorkerRole[];
@@ -28,7 +29,7 @@ export async function bootstrapWorkers(options: WorkerOptions = {}) {
     const urls = options.queueUrls ?? { wagers: await getQueue('wager-transactions.fifo'), dlq: await getQueue('wager-transactions-dlq.fifo'), events: await getQueue('wager-events.fifo') };
     const uow = new MikroFinancialUnitOfWork(orm);
     const workers = roles.map(role => {
-      if (role === 'publisher') return new OutboxPublisher(orm, new SqsEventPublisher(client, urls.events), options.onPublished);
+      if (role === 'publisher') return new OutboxPublisher(orm, new SqsEventPublisher(client, urls.events), options.onPublished, options.beforePublish);
       if (role === 'reference') return new ReferenceWorker(orm, new RetryPendingReference(uow));
       return new WagerConsumer(client, new ProcessWager(uow), { queueUrl: urls.wagers, dlqUrl: urls.dlq,
         ...(options.waitTimeSeconds !== undefined ? { waitTimeSeconds: options.waitTimeSeconds } : {}),
