@@ -230,7 +230,8 @@ Marco: operações e consultas fechadas, inclusive referências e reconciliaçã
 
 ## T25 — Implementar shutdown dos workers
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: processo Bun separado executou handler SIGTERM por IPC no Windows, drenou operação entre commit/ack e saiu com código zero; teste unitário confirmou ausência de nova leitura; receive cancelável e referência para entre candidatos.
 - Dependências: T19, T23, T24.
 - Aceite: SIGTERM para novas leituras; operações em andamento terminam ou mensagens voltam à visibilidade; conexões são fechadas sem ack antecipado.
 - Verificação: bun run test:recovery -- tests/recovery/shutdown.test.ts.

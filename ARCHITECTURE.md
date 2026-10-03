@@ -99,6 +99,15 @@ erro permanente vai para DLQ. Se houver envio explícito à DLQ, a mensagem orig
 só é removida após confirmação do envio. SIGTERM interrompe novas leituras
 e conclui operações em andamento ou devolve sua visibilidade.
 
+API e workers possuem executáveis separados (`start:api`, `start:worker`).
+`WORKER_ROLES=consumer,publisher,reference` seleciona os papéis; várias instâncias
+podem executar os mesmos papéis. Shutdown cancela o long polling, devolve
+mensagens recebidas após a solicitação e aguarda operações em andamento antes
+de fechar SQS/ORM. No Windows, o teste de encerramento gracioso usa IPC para
+acionar o handler SIGTERM; não é evidência de entrega de sinais POSIX pelo SO.
+Testes de morte abrupta usam encerramento real do subprocesso.
+O harness utiliza [Bun.spawn e IPC](https://bun.com/docs/runtime/child-process).
+
 ## Contratos e leituras
 
 Valores financeiros exigem strings decimais canônicas com exatamente duas casas,
