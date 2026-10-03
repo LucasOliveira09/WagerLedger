@@ -55,7 +55,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T06 — Fechar contratos financeiros e estados
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 20 testes unitários cumulativos passaram; estados terminais, exigência de referência e valor positivo protegidos; interpretações de replay/zero/keys registradas em ARCHITECTURE.md.
 - Dependências: T04.
 - Aceite: Decisões de zero, WIN/referências, replay pendente e scope da key registradas; transições terminais protegidas; failureCodes estáveis.
 - Verificação: bun run test:unit -- tests/unit/wager-transaction.test.ts; revisão das interpretações contra ANALISE.md.

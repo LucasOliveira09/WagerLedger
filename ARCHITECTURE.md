@@ -94,9 +94,20 @@ e conclui operações em andamento ou devolve sua visibilidade.
 
 ## Contratos e leituras
 
-Replay terminal usa o snapshot original, incluindo saldo e código HTTP.
-GET de transação retorna o estado atual. O replay de uma aceitação pendente
-precisa ter política explícita antes da implementação, sem recalcular saldo.
+Valores financeiros exigem strings decimais canônicas com exatamente duas casas,
+sem espaços, sinal positivo ou zeros extras à esquerda. BET/WIN/REFUND/ROLLBACK
+exigem valor positivo; LOSS pode ter zero. OPENING só existe com saldo inicial
+positivo. O limite é 999999999999999999.99, compatível com NUMERIC(20,2).
+
+Replay usa o snapshot original de submissão, incluindo saldo e código HTTP.
+Uma aceitação PENDING_REFERENCE continua sendo replay de seu aceite original;
+GET de transação retorna o estado atual e permite acompanhar a resolução.
+Keys têm unicidade global; recomenda-se prefixo de provider, sem gerá-lo
+automaticamente no lugar do header. A identidade externa também é única.
+WIN com referência valida BET processada e os mesmos vínculos; sem referência
+é permitido. Referência existente ainda pendente aguarda; terminal sem aprovação
+rejeita com REFERENCE_NOT_PROCESSED. Reversões continuam únicas por tipo.
+
 Reconciliação compara saldo e ledger no mesmo snapshot de leitura e não corrige
 divergências. Ledger usa paginação por cursor opaco e ordem total estável.
 
