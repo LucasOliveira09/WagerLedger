@@ -295,6 +295,20 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## Critério final
 
+## T32 — Adicionar experimento de carga reproduzível
+
+- [ ] Concluída e verificada.
+- Escopo adicional autorizado após T31: comando `bun run test:load`, cenários
+  de carteira disputada e carteiras independentes, histórico configurável,
+  ambiente descartável e processos separados.
+- Aceite: relatório com ambiente/parâmetros, throughput, p50/p95/p99, erros,
+  conflitos de lock e outbox lag; saldo/ledger e publicação conferidos ao final.
+- Verificação: testes das estatísticas/gerador, integração dos subprocessos,
+  execução curta de controle, experimento local, lint/tipos/build e suíte completa.
+- Evidências e limitações do desempenho devem ser registradas em `docs/`.
+
+## Critério final da entrega principal
+
 Nenhuma falha eliminatória do PRD. Evidências reproduzíveis com PostgreSQL/SQS
 reais, três ou mais processos e igualdade saldo/ledger após cada cenário.
 IdP, dashboard, OpenTelemetry, partidas dobradas e teste de carga não são marcos

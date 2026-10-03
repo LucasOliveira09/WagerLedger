@@ -95,3 +95,20 @@ ledger mutável, idempotência somente em memória ou publicação antes do comm
 Revisar proposta técnica e interpretações com o usuário antes de implementar.
 Marcos do todo exigem testes, build e documentação atualizados. O aceite final
 combina todas as evidências de `../ANALISE.md` e nenhuma falha eliminatória.
+# Extensão: teste de carga opcional
+
+Solicitada após a entrega principal. Adicionar `bun run test:load` com gerador
+HTTP em Bun, API e publisher em subprocessos, banco e filas descartáveis.
+Comparar uma carteira disputada com várias carteiras independentes; permitir
+variar concorrência, duração e histórico inicial. Aquecimento fica fora da medição.
+
+Entregar em incrementos: configuração/estatísticas testadas; gerador limitado;
+serviços isolados; execução e relatório; metodologia e resultados locais.
+Registrar throughput, p50/p95/p99, erros, conflitos/retries de lock, outbox lag
+amostrado e tempo de drenagem. Reconciliar todas as carteiras, verificar efeito
+único e confirmar publicação. Falhas de correção, erros HTTP ou eventos sem
+drenar produzem saída diferente de zero; não impor uma meta arbitrária de RPS.
+
+Relatórios brutos ficam ignorados em `artifacts/load/`. A documentação pública
+registra ambiente, parâmetros, resultados e limites do modelo fechado de carga.
+
