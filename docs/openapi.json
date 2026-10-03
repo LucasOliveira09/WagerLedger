@@ -1,0 +1,1893 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WagerLedger — API financeira",
+    "description": "Backend de apostas com Money exato, ledger auditável, idempotência persistente e entrada HTTP/SQS.\n\n**Como testar:** crie uma carteira, copie seu id e playerId e submeta uma BET com Idempotency-Key. No Postman, use a collection e o roteiro em docs/TESTING.md.\n\n**Money:** valores são strings com duas casas, por exemplo \"80.00\". BET/WIN/REFUND/ROLLBACK exigem valor positivo; LOSS aceita zero e não movimenta saldo. OPENING é interno.\n\n**Idempotência:** a key é global. Mesmo payload/key reproduz código HTTP, status e saldo originais, alterando apenas idempotentReplay. Payload divergente ou mesma identidade externa com nova key retorna 409.\n\n**Referências:** REFUND/ROLLBACK exigem referência integral com mesmo provider, jogador, carteira, moeda e rodada. Referência ausente resulta em 202; inicie o worker e consulte o GET para acompanhar a resolução. Um replay continua mostrando o aceite original.\n\n**Autenticação:** esta entrega local não possui IdP. O providerId é declarado no payload e validado no domínio. Não há autenticação Bearer implementada.\n\n**SQS:** contratos HTTP abaixo. A collection exercita a API; o envio SQS e a recuperação de falhas são cobertos por bun run demo e pelas suites. MiniStack emula o SQS localmente.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Carteiras",
+      "description": "Abertura, saldo, ledger e reconciliação."
+    },
+    {
+      "name": "Transações",
+      "description": "Submissão e consulta das operações financeiras."
+    },
+    {
+      "name": "Operação",
+      "description": "Liveness, readiness e métricas do processo."
+    }
+  ],
+  "servers": [
+    {
+      "url": "/",
+      "description": "API que está servindo esta documentação; permite mudar a porta sem editar exemplos."
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Money": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{2}$",
+            "maxLength": 21,
+            "example": "80.00",
+            "description": "Decimal exato com duas casas; máximo 999999999999999999.99. Sem sinais, notação científica, arredondamento ou zeros extras à esquerda."
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "example": "BRL",
+            "description": "Código de moeda reconhecido pelo runtime Intl. Deve coincidir com a moeda da carteira; não há conversão cambial."
+          }
+        }
+      },
+      "PositiveMoney": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{2}$",
+            "maxLength": 21,
+            "example": "80.00",
+            "description": "Decimal exato com duas casas; máximo 999999999999999999.99. Sem sinais, notação científica, arredondamento ou zeros extras à esquerda.",
+            "not": {
+              "enum": [
+                "0.00"
+              ]
+            }
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "example": "BRL",
+            "description": "Código de moeda reconhecido pelo runtime Intl. Deve coincidir com a moeda da carteira; não há conversão cambial."
+          }
+        }
+      },
+      "SignedMoney": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]{0,17})\\.[0-9]{2}$",
+            "maxLength": 22,
+            "example": "80.00",
+            "description": "Valor exato com sinal, utilizado na reconciliação. Não é aceito como entrada financeira."
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "example": "BRL",
+            "description": "Código de moeda reconhecido pelo runtime Intl. Deve coincidir com a moeda da carteira; não há conversão cambial."
+          }
+        }
+      },
+      "OpenWalletInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "playerId",
+          "initialBalance"
+        ],
+        "properties": {
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef"
+          },
+          "initialBalance": {
+            "$ref": "#/components/schemas/Money"
+          }
+        }
+      },
+      "Wallet": {
+        "type": "object",
+        "required": [
+          "id",
+          "playerId",
+          "balance",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef"
+          },
+          "balance": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2,
+            "description": "Inicia em 1; incrementa quando o saldo muda. LOSS não incrementa."
+          }
+        }
+      },
+      "BetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Debita o valor da carteira. Saldo insuficiente gera REJECTED/INSUFFICIENT_FUNDS sem lançamento.",
+        "required": [
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "ID externo da operação referenciada no mesmo provedor. Obrigatório para REFUND/ROLLBACK; opcional para WIN.",
+            "example": "bet-001"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "BET"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "WinInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Credita o valor. Uma referência opcional deve ser uma BET processada com vínculos compatíveis.",
+        "required": [
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "ID externo da operação referenciada no mesmo provedor. Obrigatório para REFUND/ROLLBACK; opcional para WIN.",
+            "example": "bet-001"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WIN"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "LossInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Registra a perda sem movimentar saldo, gerar ledger ou incrementar a versão. Aceita 0.00.",
+        "required": [
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "ID externo da operação referenciada no mesmo provedor. Obrigatório para REFUND/ROLLBACK; opcional para WIN.",
+            "example": "bet-001"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "LOSS"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/Money"
+          }
+        }
+      },
+      "RefundInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Credita integralmente uma BET processada. No máximo um REFUND processado por referência.",
+        "required": [
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money",
+          "referenceExternalTransactionId"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "ID externo da operação referenciada no mesmo provedor. Obrigatório para REFUND/ROLLBACK; opcional para WIN.",
+            "example": "bet-001"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "REFUND"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "RollbackInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Inverte integralmente BET, WIN ou REFUND. No máximo um ROLLBACK processado por referência. Débito sem saldo rejeita com REVERSAL_INSUFFICIENT_FUNDS.",
+        "required": [
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money",
+          "referenceExternalTransactionId"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "ID externo da operação referenciada no mesmo provedor. Obrigatório para REFUND/ROLLBACK; opcional para WIN.",
+            "example": "bet-001"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ROLLBACK"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "WagerInput": {
+        "description": "Escolha o tipo financeiro. Campos desconhecidos são rejeitados; OPENING é exclusivamente interno.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/BetInput"
+          },
+          {
+            "$ref": "#/components/schemas/WinInput"
+          },
+          {
+            "$ref": "#/components/schemas/LossInput"
+          },
+          {
+            "$ref": "#/components/schemas/RefundInput"
+          },
+          {
+            "$ref": "#/components/schemas/RollbackInput"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "BET": "#/components/schemas/BetInput",
+            "WIN": "#/components/schemas/WinInput",
+            "LOSS": "#/components/schemas/LossInput",
+            "REFUND": "#/components/schemas/RefundInput",
+            "ROLLBACK": "#/components/schemas/RollbackInput"
+          }
+        }
+      },
+      "TransactionResult": {
+        "type": "object",
+        "required": [
+          "transactionId",
+          "status",
+          "balance",
+          "idempotentReplay"
+        ],
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e3dd1a78-2579-4474-82ae-34f924665102"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PENDING_REFERENCE",
+              "PROCESSED",
+              "REJECTED",
+              "FAILED"
+            ]
+          },
+          "balance": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "idempotentReplay": {
+            "type": "boolean",
+            "example": false,
+            "description": "True em replay. Saldo, status e código HTTP preservam o resultado original."
+          },
+          "failureCode": {
+            "type": "string",
+            "enum": [
+              "INSUFFICIENT_FUNDS",
+              "REVERSAL_INSUFFICIENT_FUNDS",
+              "CURRENCY_MISMATCH",
+              "WALLET_IDENTITY_MISMATCH",
+              "REFERENCE_MISMATCH",
+              "REFERENCE_KIND_INVALID",
+              "REFERENCE_NOT_PROCESSED",
+              "REFERENCE_NOT_FOUND",
+              "REVERSAL_ALREADY_APPLIED",
+              "AMOUNT_MISMATCH",
+              "AMOUNT_OUT_OF_RANGE",
+              "INFRASTRUCTURE_PERMANENT_FAILURE"
+            ],
+            "description": "Motivo estável da rejeição/falha; presente apenas quando aplicável."
+          }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "required": [
+          "id",
+          "providerId",
+          "externalTransactionId",
+          "walletId",
+          "playerId",
+          "roundId",
+          "gameId",
+          "kind",
+          "money",
+          "status",
+          "referenceExternalTransactionId",
+          "referenceTransactionId",
+          "failureCode",
+          "createdAt",
+          "processedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e3dd1a78-2579-4474-82ae-34f924665102"
+          },
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?!__)[^\\u0000-\\u001f]+$",
+            "description": "Identidade declarada do provedor. Prefixo __ reservado para operações internas.",
+            "example": "provider-demo"
+          },
+          "externalTransactionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identidade única dentro do provedor. Nova key com a mesma identidade retorna conflito.",
+            "example": "bet-001"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "description": "ID da carteira criada em POST /wallets."
+          },
+          "playerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+            "description": "Jogador proprietário da carteira."
+          },
+          "roundId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Rodada. Referências devem pertencer à mesma rodada.",
+            "example": "round-001"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]+$",
+            "description": "Identificador do jogo.",
+            "example": "game-001"
+          },
+          "referenceExternalTransactionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "OPENING",
+              "BET",
+              "WIN",
+              "LOSS",
+              "REFUND",
+              "ROLLBACK"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PENDING_REFERENCE",
+              "PROCESSED",
+              "REJECTED",
+              "FAILED"
+            ]
+          },
+          "referenceTransactionId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+            "nullable": true
+          },
+          "failureCode": {
+            "type": "string",
+            "enum": [
+              "INSUFFICIENT_FUNDS",
+              "REVERSAL_INSUFFICIENT_FUNDS",
+              "CURRENCY_MISMATCH",
+              "WALLET_IDENTITY_MISMATCH",
+              "REFERENCE_MISMATCH",
+              "REFERENCE_KIND_INVALID",
+              "REFERENCE_NOT_PROCESSED",
+              "REFERENCE_NOT_FOUND",
+              "REVERSAL_ALREADY_APPLIED",
+              "AMOUNT_MISMATCH",
+              "AMOUNT_OUT_OF_RANGE",
+              "INFRASTRUCTURE_PERMANENT_FAILURE"
+            ],
+            "description": "Motivo estável da rejeição/falha; presente apenas quando aplicável.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "LedgerEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "walletId",
+          "transactionId",
+          "direction",
+          "money",
+          "balanceBefore",
+          "balanceAfter",
+          "sequence",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+          },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+          },
+          "transactionId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "e3dd1a78-2579-4474-82ae-34f924665102"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
+          },
+          "money": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          },
+          "balanceBefore": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "balanceAfter": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LedgerPage": {
+        "type": "object",
+        "required": [
+          "entries",
+          "nextCursor"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntry"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor opaco para a próxima página. Null indica fim dessa navegação."
+          }
+        }
+      },
+      "Reconciliation": {
+        "type": "object",
+        "required": [
+          "walletId",
+          "storedBalance",
+          "calculatedBalance",
+          "checkedEntries",
+          "difference",
+          "consistent"
+        ],
+        "properties": {
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+          },
+          "storedBalance": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "calculatedBalance": {
+            "$ref": "#/components/schemas/SignedMoney"
+          },
+          "checkedEntries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "difference": {
+            "$ref": "#/components/schemas/SignedMoney"
+          },
+          "consistent": {
+            "type": "boolean",
+            "description": "Saldo armazenado igual à soma assinada do ledger, incluindo abertura. Divergências não são corrigidas automaticamente."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "INVALID_PAYLOAD"
+              },
+              "message": {
+                "type": "string",
+                "example": "Payload contém campos não permitidos."
+              }
+            }
+          }
+        }
+      },
+      "Liveness": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "alive"
+            ]
+          }
+        }
+      },
+      "Readiness": {
+        "type": "object",
+        "required": [
+          "status",
+          "postgres",
+          "sqs"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ]
+          },
+          "postgres": {
+            "type": "boolean"
+          },
+          "sqs": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
+  "security": [],
+  "paths": {
+    "/wallets": {
+      "post": {
+        "tags": [
+          "Carteiras"
+        ],
+        "operationId": "openWallet",
+        "summary": "Criar carteira com saldo inicial auditável",
+        "description": "Carteira única por jogador/moeda. Saldo positivo gera OPENING, crédito no ledger e eventos no mesmo commit. Saldo zero cria a carteira sem lançamento. A criação não utiliza Idempotency-Key; repetição do jogador/moeda retorna 409.",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Identificador para correlacionar logs/eventos. Se omitido, a API gera um UUID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "example": "teste-local-001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenWalletInput"
+              },
+              "example": {
+                "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                "initialBalance": {
+                  "amount": "100.00",
+                  "currency": "BRL"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Carteira criada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                },
+                "example": {
+                  "id": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                  "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                  "balance": {
+                    "amount": "100.00",
+                    "currency": "BRL"
+                  },
+                  "version": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Já existe uma carteira para o jogador/moeda.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "RESOURCE_CONFLICT",
+                    "message": "Já existe uma carteira para o jogador/moeda."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{walletId}": {
+      "get": {
+        "tags": [
+          "Carteiras"
+        ],
+        "operationId": "getWallet",
+        "summary": "Consultar saldo e versão atuais",
+        "parameters": [
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado atual da carteira.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Carteira inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "WALLET_NOT_FOUND",
+                    "message": "Carteira inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{walletId}/ledger": {
+      "get": {
+        "tags": [
+          "Carteiras"
+        ],
+        "operationId": "getWalletLedger",
+        "summary": "Consultar ledger imutável com paginação estável",
+        "description": "Lançamentos em ordem crescente por sequência. A primeira página fixa a versão superior; novos lançamentos ficam para outra navegação. Use nextCursor sem modificá-lo; null indica fim. O cursor pertence à carteira consultada.",
+        "parameters": [
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Tamanho da página.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "example": 2
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Cursor retornado pela página anterior. Omita na primeira página.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de lançamentos e cursor seguinte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Carteira inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "WALLET_NOT_FOUND",
+                    "message": "Carteira inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{walletId}/reconciliation": {
+      "post": {
+        "tags": [
+          "Carteiras"
+        ],
+        "operationId": "reconcileWallet",
+        "summary": "Conferir saldo contra a soma do ledger",
+        "description": "Leitura em um snapshot SQL consistente; inclui OPENING. difference = storedBalance − calculatedBalance. Divergência gera log/métrica e consistent=false, sem corrigir saldo ou histórico. Não é necessário enviar body.",
+        "parameters": [
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Identificador para correlacionar logs/eventos. Se omitido, a API gera um UUID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "example": "teste-local-001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado da comparação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reconciliation"
+                },
+                "example": {
+                  "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                  "storedBalance": {
+                    "amount": "100.00",
+                    "currency": "BRL"
+                  },
+                  "calculatedBalance": {
+                    "amount": "100.00",
+                    "currency": "BRL"
+                  },
+                  "checkedEntries": 1,
+                  "difference": {
+                    "amount": "0.00",
+                    "currency": "BRL"
+                  },
+                  "consistent": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Carteira inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "WALLET_NOT_FOUND",
+                    "message": "Carteira inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wagering/transactions": {
+      "post": {
+        "tags": [
+          "Transações"
+        ],
+        "operationId": "submitWager",
+        "summary": "Processar BET, WIN, LOSS, REFUND ou ROLLBACK",
+        "description": "Confirma transação, saldo, ledger e outbox atomicamente. Key tem unicidade global; prefira prefixar com o provedor. Rejeição financeira retorna 422 com TransactionResult; entrada inválida retorna ErrorResponse. REFUND e ROLLBACK são únicos por referência e tipo, portanto podem coexistir sobre uma BET. Um ROLLBACK de WIN/REFUND sem saldo rejeita com REVERSAL_INSUFFICIENT_FUNDS.",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Identificador para correlacionar logs/eventos. Se omitido, a API gera um UUID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "example": "teste-local-001"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Identidade persistente do pedido. Reutilize em retries com o mesmo payload; uma nova key não substitui uma identidade externa já utilizada.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "example": "provider-demo:bet-001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WagerInput"
+              },
+              "examples": {
+                "BET": {
+                  "summary": "Aposta de 80.00",
+                  "value": {
+                    "providerId": "provider-demo",
+                    "externalTransactionId": "bet-001",
+                    "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                    "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                    "roundId": "round-001",
+                    "gameId": "game-001",
+                    "kind": "BET",
+                    "money": {
+                      "amount": "80.00",
+                      "currency": "BRL"
+                    }
+                  }
+                },
+                "WIN": {
+                  "summary": "Ganho de 20.00 referenciando a BET",
+                  "value": {
+                    "providerId": "provider-demo",
+                    "externalTransactionId": "win-001",
+                    "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                    "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                    "roundId": "round-001",
+                    "gameId": "game-001",
+                    "kind": "WIN",
+                    "money": {
+                      "amount": "20.00",
+                      "currency": "BRL"
+                    },
+                    "referenceExternalTransactionId": "bet-001"
+                  }
+                },
+                "LOSS": {
+                  "summary": "Perda sem movimentação de saldo",
+                  "value": {
+                    "providerId": "provider-demo",
+                    "externalTransactionId": "loss-001",
+                    "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                    "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                    "roundId": "round-001",
+                    "gameId": "game-001",
+                    "kind": "LOSS",
+                    "money": {
+                      "amount": "0.00",
+                      "currency": "BRL"
+                    }
+                  }
+                },
+                "REFUND": {
+                  "summary": "Reembolso integral da BET",
+                  "value": {
+                    "providerId": "provider-demo",
+                    "externalTransactionId": "refund-001",
+                    "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                    "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                    "roundId": "round-001",
+                    "gameId": "game-001",
+                    "kind": "REFUND",
+                    "money": {
+                      "amount": "80.00",
+                      "currency": "BRL"
+                    },
+                    "referenceExternalTransactionId": "bet-001"
+                  }
+                },
+                "ROLLBACK": {
+                  "summary": "Reversão integral do WIN",
+                  "value": {
+                    "providerId": "provider-demo",
+                    "externalTransactionId": "rollback-001",
+                    "walletId": "8f0b0467-8479-4d24-a4b5-06795d33cd19",
+                    "playerId": "6f8486c3-9559-41b5-adbc-67f3e8b5a9ef",
+                    "roundId": "round-001",
+                    "gameId": "game-001",
+                    "kind": "ROLLBACK",
+                    "money": {
+                      "amount": "20.00",
+                      "currency": "BRL"
+                    },
+                    "referenceExternalTransactionId": "win-001"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Processada ou replay de uma operação processada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResult"
+                },
+                "example": {
+                  "transactionId": "e3dd1a78-2579-4474-82ae-34f924665102",
+                  "status": "PROCESSED",
+                  "balance": {
+                    "amount": "20.00",
+                    "currency": "BRL"
+                  },
+                  "idempotentReplay": false
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Aceita aguardando referência; consulte o GET para obter o estado atual.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResult"
+                },
+                "example": {
+                  "transactionId": "e3dd1a78-2579-4474-82ae-34f924665102",
+                  "status": "PENDING_REFERENCE",
+                  "balance": {
+                    "amount": "100.00",
+                    "currency": "BRL"
+                  },
+                  "idempotentReplay": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Carteira inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "WALLET_NOT_FOUND",
+                    "message": "Carteira inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Key usada com payload diferente. Também pode retornar EXTERNAL_TRANSACTION_CONFLICT para identidade externa já associada a outra key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "IDEMPOTENCY_CONFLICT",
+                    "message": "Key usada com payload diferente. Também pode retornar EXTERNAL_TRANSACTION_CONFLICT para identidade externa já associada a outra key."
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejeição de negócio persistida sem movimento financeiro.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResult"
+                },
+                "example": {
+                  "transactionId": "e3dd1a78-2579-4474-82ae-34f924665102",
+                  "status": "REJECTED",
+                  "balance": {
+                    "amount": "20.00",
+                    "currency": "BRL"
+                  },
+                  "idempotentReplay": false,
+                  "failureCode": "INSUFFICIENT_FUNDS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Infraestrutura indisponível (ErrorResponse) ou replay de FAILED auditado na entrada SQS (TransactionResult). Um aceite anterior mantém seu snapshot 202 mesmo se o estado atual for FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TransactionResult"
+                    }
+                  ]
+                },
+                "examples": {
+                  "unavailable": {
+                    "value": {
+                      "error": {
+                        "code": "INFRASTRUCTURE_UNAVAILABLE",
+                        "message": "Serviço temporariamente indisponível."
+                      }
+                    }
+                  },
+                  "auditedFailure": {
+                    "value": {
+                      "transactionId": "e3dd1a78-2579-4474-82ae-34f924665102",
+                      "status": "FAILED",
+                      "balance": {
+                        "amount": "100.00",
+                        "currency": "BRL"
+                      },
+                      "idempotentReplay": false,
+                      "failureCode": "INFRASTRUCTURE_PERMANENT_FAILURE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wagering/transactions/{transactionId}": {
+      "get": {
+        "tags": [
+          "Transações"
+        ],
+        "operationId": "getTransaction",
+        "summary": "Consultar estado atual pelo ID interno",
+        "description": "Retorna o estado atual, incluindo resolução de pendências; não é o snapshot do POST.",
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "8f0b0467-8479-4d24-a4b5-06795d33cd19"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação encontrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transação inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "TRANSACTION_NOT_FOUND",
+                    "message": "Transação inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/providers/{providerId}/wagering/transactions/{externalTransactionId}": {
+      "get": {
+        "tags": [
+          "Transações"
+        ],
+        "operationId": "getExternalTransaction",
+        "summary": "Consultar pela identidade externa do provedor",
+        "description": "Mesmo estado atual do GET por ID interno. Encode os identificadores ao construir a URL.",
+        "parameters": [
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "example": "provider-demo"
+          },
+          {
+            "name": "externalTransactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "example": "bet-001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação encontrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_PAYLOAD",
+                    "message": "Contrato inválido: campos desconhecidos, UUID, Money, cursor ou parâmetro inválido."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transação inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "TRANSACTION_NOT_FOUND",
+                    "message": "Transação inexistente."
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependência indisponível; tente novamente preservando a Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INFRASTRUCTURE_UNAVAILABLE",
+                    "message": "Dependência indisponível; tente novamente preservando a Idempotency-Key."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Operação"
+        ],
+        "operationId": "liveness",
+        "summary": "Verificar se o processo responde",
+        "description": "Aberto; não consulta PostgreSQL/SQS. Uma resposta 200 não garante que as dependências estejam disponíveis.",
+        "responses": {
+          "200": {
+            "description": "Processo respondendo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Liveness"
+                },
+                "example": {
+                  "status": "alive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Operação"
+        ],
+        "operationId": "readiness",
+        "summary": "Verificar disponibilidade de PostgreSQL e SQS",
+        "description": "Consulta SQL e as três filas com timeout. Não exige autenticação.",
+        "responses": {
+          "200": {
+            "description": "Dependências disponíveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                },
+                "example": {
+                  "status": "ready",
+                  "postgres": true,
+                  "sqs": true
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Uma ou mais dependências indisponíveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                },
+                "example": {
+                  "status": "not_ready",
+                  "postgres": false,
+                  "sqs": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "Operação"
+        ],
+        "operationId": "metrics",
+        "summary": "Consultar métricas Prometheus deste processo",
+        "description": "Contadores, gauges e histogramas locais ao processo; reiniciam junto dele. Workers expõem métricas próprias quando METRICS_PORT é configurado. Séries surgem após uso dos fluxos instrumentados.",
+        "responses": {
+          "200": {
+            "description": "Métricas em texto. O processo recém-iniciado pode ainda não possuir séries.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "transactions_total{status=\"PROCESSED\"} 1\n"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

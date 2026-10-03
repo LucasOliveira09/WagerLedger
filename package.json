@@ -19,6 +19,7 @@
     "migration:down": "bun scripts/migrate.ts down",
     "queues:init": "bun scripts/init-queues.ts",
     "demo": "bun scripts/demo.ts",
+    "docs:generate": "bun scripts/generate-api-docs.ts",
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
     "test:concurrency": "bun test tests/concurrency",
