@@ -10,11 +10,20 @@ export interface ConsumerOptions {
   onCommitted?: (message: ReturnType<typeof parseWagerMessage>) => Promise<void>;
 }
 export class WagerConsumer {
+  private stopping = false;
+  private readonly receiving = new AbortController();
   constructor(private readonly client: SQSClient, private readonly process: ProcessWager, private readonly options: ConsumerOptions) {}
+  requestStop(): void { this.stopping = true; this.receiving.abort(); }
   async tick(): Promise<number> {
     const wait = this.options.waitTimeSeconds ?? 20;
-    const result = await this.client.send(new ReceiveMessageCommand({ QueueUrl: this.options.queueUrl, MaxNumberOfMessages: 1, WaitTimeSeconds: wait, VisibilityTimeout: this.options.visibilitySeconds ?? 30, MessageSystemAttributeNames: ['ApproximateReceiveCount', 'MessageGroupId'] }), { abortSignal: AbortSignal.timeout((wait + 5) * 1000) });
-    for (const message of result.Messages ?? []) await this.handle(message);
+    let result;
+    try {
+      result = await this.client.send(new ReceiveMessageCommand({ QueueUrl: this.options.queueUrl, MaxNumberOfMessages: 1, WaitTimeSeconds: wait, VisibilityTimeout: this.options.visibilitySeconds ?? 30, MessageSystemAttributeNames: ['ApproximateReceiveCount', 'MessageGroupId'] }), { abortSignal: AbortSignal.any([this.receiving.signal, AbortSignal.timeout((wait + 5) * 1000)]) });
+    } catch (error) { if (this.stopping) return 0; throw error; }
+    for (const message of result.Messages ?? []) {
+      if (this.stopping) await this.client.send(new ChangeMessageVisibilityCommand({ QueueUrl: this.options.queueUrl, ReceiptHandle: message.ReceiptHandle!, VisibilityTimeout: 0 }), { abortSignal: AbortSignal.timeout(5000) });
+      else await this.handle(message);
+    }
     return result.Messages?.length ?? 0;
   }
   async handle(message: Message): Promise<void> {
