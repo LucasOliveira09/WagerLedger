@@ -118,7 +118,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T13 — Implementar hash e replay persistente
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: hash SHA-256 canônico determinístico testado; replay persistido, payload divergente e identidade externa com nova key verificados no PostgreSQL.
 - Dependências: T06, T09.
 - Aceite: SHA-256 canônico documentado; key obrigatória; divergência conflita; key nova com mesmo provider/ID externo não duplica; snapshots preservados.
 - Verificação: bun run test:unit -- tests/unit/canonical-payload.test.ts; bun run test:integration -- tests/integration/idempotency.test.ts.

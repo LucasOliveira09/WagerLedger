@@ -4,7 +4,7 @@ import type { FinancialSession, FinancialUnitOfWork } from '../../application/po
 import type { Wallet } from '../../domain/wallet.js';
 import { DomainError } from '../../domain/domain-error.js';
 import { WalletRecord, rehydrateWallet } from './wallet-mapping.js';
-import { TransactionRecord } from './transaction-mapping.js';
+import { TransactionRecord, rehydrateTransaction } from './transaction-mapping.js';
 import type { WagerTransaction } from '../../domain/wager-transaction.js';
 import type { WalletLedgerEntry } from '../../domain/wallet-ledger-entry.js';
 import type { OutboxMessage } from '../../domain/outbox-message.js';
@@ -41,6 +41,14 @@ class MikroFinancialSession implements FinancialSession {
   async appendOutbox(messages: readonly OutboxMessage[]): Promise<void> {
     for (const message of messages) await this.em.execute('insert into outbox_messages(id,aggregate_id,event_type,payload,occurred_at,attempts) values(?,?,?,?,?,?)',
       [message.id, message.aggregateId, message.eventType, JSON.stringify(message.payload), message.occurredAt, message.attempts]);
+  }
+  async transactionByKey(key: string) {
+    const row = await this.em.findOne(TransactionRecord, { idempotencyKey: key });
+    return row ? { transaction: rehydrateTransaction(row), snapshot: row.responseSnapshot as SubmissionResult | null } : undefined;
+  }
+  async transactionByExternal(providerId: string, externalTransactionId: string) {
+    const row = await this.em.findOne(TransactionRecord, { providerId, externalTransactionId });
+    return row ? { transaction: rehydrateTransaction(row), snapshot: row.responseSnapshot as SubmissionResult | null } : undefined;
   }
 }
 

@@ -11,7 +11,10 @@ export interface FinancialSession {
   saveTransaction(tx: WagerTransaction, snapshot?: SubmissionResult): Promise<void>;
   appendLedger(entry: WalletLedgerEntry): Promise<void>;
   appendOutbox(messages: readonly OutboxMessage[]): Promise<void>;
+  transactionByKey(key: string): Promise<StoredTransaction | undefined>;
+  transactionByExternal(providerId: string, externalTransactionId: string): Promise<StoredTransaction | undefined>;
 }
+export interface StoredTransaction { transaction: WagerTransaction; snapshot: SubmissionResult | null }
 export interface FinancialUnitOfWork {
   run<T>(walletId: string | undefined, operation: (session: FinancialSession) => Promise<T>): Promise<T>;
 }
