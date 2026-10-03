@@ -18,7 +18,7 @@ export function spawnTestWorker(configuration: object) {
       listeners.delete(notice.event);
     },
   });
-  const output = child.stdout.text(); const errors = child.stderr.text();
+  const output = new Response(child.stdout).text(); const errors = new Response(child.stderr).text();
   return {
     child, output, errors,
     waitFor(event: string) {
