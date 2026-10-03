@@ -3,16 +3,16 @@ import { latencySummary } from './metrics.js';
 export interface LoadWallet { id: string; playerId: string }
 export interface GeneratorOptions {
   baseUrl: string; wallets: readonly LoadWallet[]; concurrency: number; durationMs: number;
-  maxRequests: number; timeoutMs: number; prefix: string;
+  maxRequests: number; timeoutMs: number; prefix: string; signal?: AbortSignal;
 }
 interface BetResult { status: number; transactionId?: string; failure?: string }
-export async function submitBet(baseUrl: string, wallet: LoadWallet, identity: string, timeoutMs: number): Promise<BetResult> {
+export async function submitBet(baseUrl: string, wallet: LoadWallet, identity: string, timeoutMs: number, signal?: AbortSignal): Promise<BetResult> {
   try {
     const response = await fetch(new URL('/wagering/transactions', baseUrl), {
       method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': identity, 'x-correlation-id': identity },
       body: JSON.stringify({ providerId: 'load-test', externalTransactionId: identity, walletId: wallet.id,
         playerId: wallet.playerId, roundId: 'load-round', gameId: 'load-game', kind: 'BET', money: { amount: '1.00', currency: 'BRL' } }),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
     const body = await response.json() as { transactionId?: string; status?: string; idempotentReplay?: boolean; balance?: { amount?: string; currency?: string } };
     if (response.status !== 200) return { status: response.status, failure: `HTTP_${response.status}` };
@@ -35,11 +35,11 @@ export async function runLoad(options: GeneratorOptions) {
   // Modelo fechado: cada conexão lógica só envia a próxima operação quando termina a atual.
   // Não há retry do cliente; toda operação tem identidade única e entra nas estatísticas.
   await Promise.all(Array.from({ length: options.concurrency }, async () => {
-    while (sent < options.maxRequests && performance.now() - started < options.durationMs) {
+    while (!options.signal?.aborted && sent < options.maxRequests && performance.now() - started < options.durationMs) {
       const index = sent++;
       const wallet = options.wallets[index % options.wallets.length]!;
       const requestStarted = performance.now();
-      const result = await submitBet(options.baseUrl, wallet, `${options.prefix}:${index}`, options.timeoutMs);
+      const result = await submitBet(options.baseUrl, wallet, `${options.prefix}:${index}`, options.timeoutMs, options.signal);
       latencies.push(performance.now() - requestStarted);
       const status = String(result.status); statusCounts[status] = (statusCounts[status] ?? 0) + 1;
       const failure = result.failure ?? (ids.has(result.transactionId!) ? 'DUPLICATE_TRANSACTION_ID' : undefined);

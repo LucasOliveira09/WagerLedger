@@ -36,3 +36,10 @@ test('gerador contabiliza respostas de erro e timeout sem tratá-los como sucess
     expect(result.errorRate).toBe(1); expect(result.latency.samples).toBe(2);
   } finally { await server.stop(true); }
 });
+
+test('cancelamento impede novas operações de carga', async () => {
+  const controller = new AbortController(); controller.abort();
+  const result = await runLoad({ baseUrl: 'http://127.0.0.1:1', wallets: [{ id: 'a', playerId: 'p' }], concurrency: 2,
+    durationMs: 1000, maxRequests: 10, timeoutMs: 100, prefix: 'cancelled', signal: controller.signal });
+  expect(result.requests).toBe(0); expect(result.latency.p99Ms).toBeNull();
+});
