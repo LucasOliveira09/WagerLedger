@@ -95,6 +95,7 @@ ledger mutável, idempotência somente em memória ou publicação antes do comm
 Revisar proposta técnica e interpretações com o usuário antes de implementar.
 Marcos do todo exigem testes, build e documentação atualizados. O aceite final
 combina todas as evidências de `../ANALISE.md` e nenhuma falha eliminatória.
+
 # Extensão: teste de carga opcional
 
 Solicitada após a entrega principal. Adicionar `bun run test:load` com gerador
@@ -111,4 +112,3 @@ drenar produzem saída diferente de zero; não impor uma meta arbitrária de RPS
 
 Relatórios brutos ficam ignorados em `artifacts/load/`. A documentação pública
 registra ambiente, parâmetros, resultados e limites do modelo fechado de carga.
-

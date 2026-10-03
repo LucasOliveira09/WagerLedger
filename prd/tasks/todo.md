@@ -293,11 +293,9 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 - Verificação: bun run lint; bun run typecheck; bun run build; bun run test:unit; bun run test:integration; bun run test:concurrency; bun run test:recovery.
 - Arquivos previstos: README.md, ARCHITECTURE.md, compose.yaml.
 
-## Critério final
-
 ## T32 — Adicionar experimento de carga reproduzível
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
 - Escopo adicional autorizado após T31: comando `bun run test:load`, cenários
   de carteira disputada e carteiras independentes, histórico configurável,
   ambiente descartável e processos separados.
@@ -306,6 +304,13 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 - Verificação: testes das estatísticas/gerador, integração dos subprocessos,
   execução curta de controle, experimento local, lint/tipos/build e suíte completa.
 - Evidências e limitações do desempenho devem ser registradas em `docs/`.
+- Evidência: comando executado com oito clientes/10s em uma e 16 carteiras,
+  com zero e 100 BETs prévias por carteira; quatro cenários sem erros, com
+  reconciliação/versão/eventos consistentes e outbox drenada. Metodologia e
+  resultados em `docs/LOAD_TESTING.md` e `docs/LOAD_RESULTS.md`.
+- Qualidade: suíte completa com 76 testes, 454 assertions, 49 arquivos e zero
+  falhas; lint/tipos/build aprovados. Revisão independente seguida de regressões
+  para eventos ausentes/tipos duplicados e lag residual do aquecimento.
 
 ## Critério final da entrega principal
 
