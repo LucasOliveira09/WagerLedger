@@ -5,6 +5,9 @@ export default [
   ...tseslint.configs.recommended,
   {
     files: ['**/*.ts'],
-    rules: { '@typescript-eslint/consistent-type-imports': 'error' },
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'error',
+      curly: ['error', 'all'],
+    },
   },
 ];
