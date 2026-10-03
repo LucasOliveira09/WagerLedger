@@ -77,6 +77,11 @@ cada execução usa identificadores novos. `API_URL` permite mudar o destino HTT
 
 ## API HTTP
 
+Documentação interativa: [http://localhost:3000/docs](http://localhost:3000/docs),
+com a API ativa. A collection Postman, o ambiente local e o OpenAPI versionado
+estão em `docs/`. Siga o [guia de testes manuais](docs/TESTING.md) para importar
+a collection, executar os cenários e conferir os saldos esperados.
+
 | Método | Endpoint | Resultado |
 | --- | --- | --- |
 | POST | `/wallets` | Cria carteira por jogador e moeda |
@@ -219,6 +224,7 @@ API e worker manuais são necessários apenas para a demonstração.
 Os cenários e limites da validação estão em [docs/VALIDATION.md](docs/VALIDATION.md).
 Para desenvolvimento, `bun run start:dev` habilita watch. `migration:down`
 reverte a última migration e destina-se à manutenção do schema.
+`bun run docs:generate` regenera a especificação OpenAPI e os arquivos do Postman.
 
 ## Decisões e limites
 

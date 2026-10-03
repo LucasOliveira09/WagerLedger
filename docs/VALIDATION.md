@@ -13,7 +13,7 @@ bun run build
 bun test
 ```
 
-Resultado da suíte completa: **63 testes passaram, zero falhas e 353 assertions,
+Resultado inicial da entrega: **63 testes passaram, zero falhas e 353 assertions,
 distribuídos em 41 arquivos**. Lint, tipos e build também passaram.
 Os resultados são evidência local de correção; não constituem benchmark ou
 validação de um deployment na AWS.
@@ -64,6 +64,30 @@ para verificar a proteção do PostgreSQL sem depender da ordenação FIFO.
 Com API e worker ativos, `bun run demo` passou exercitando os tipos financeiros,
 replay, saldo insuficiente, referência fora de ordem, SQS e reconciliação.
 Resultado: saldo final 100.00 BRL, sete lançamentos e diferença 0.00.
+
+## Collection e Swagger
+
+A extensão de documentação adicionou o [guia de testes](TESTING.md), a collection
+Postman com 35 cenários, o ambiente local e o OpenAPI versionado. Foram verificados:
+
+- Newman 6.2.2: 35 cenários e **75 assertions sem falhas**, incluindo polling
+  da referência fora de ordem. Na execução registrada, houve 39 requisições
+  HTTP ao todo; a contagem varia com os GETs adicionais do polling.
+- Swagger Parser 13.1.0: especificação OpenAPI 3.0.3 válida, com dez paths
+  e referências internas resolvidas.
+- Chrome via Playwright 1.63.0: dez operações renderizadas; Try it out executou
+  GET de liveness e POST de carteira reais, sem erros de console ou rede.
+- A resposta real de OPENING foi validada contra o schema Transaction por Ajv,
+  incluindo `providerId: "__internal__"` e `failureCode: null`.
+- Os testes detectam artefatos desatualizados e verificam exemplos financeiros
+  contra os parsers e factories reais. O teste HTTP verifica UI/assets/JSON/YAML
+  e o contrato de uma OPENING consultada no banco.
+
+Após essa extensão, a suíte completa passou com **66 testes, 385 assertions,
+zero falhas e 43 arquivos**. A collection foi executada contra banco descartável,
+API em porta temporária, role limitada e worker de referências/publicação.
+As ferramentas externas de verificação foram instaladas em uma pasta temporária,
+sem acrescentar dependências de teste ao runtime do projeto.
 
 ## Limites das evidências
 

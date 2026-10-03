@@ -159,6 +159,14 @@ O harness utiliza [Bun.spawn e IPC](https://bun.com/docs/runtime/child-process).
 
 ## Contratos e leituras
 
+A documentação HTTP é uma especificação OpenAPI explícita na camada de
+interfaces, servida por `@nestjs/swagger` em `/docs`. Os schemas descrevem
+os parsers existentes, sem inserir dependências de documentação no domínio.
+`docs:generate` versiona a mesma especificação e o roteiro Postman em `docs/`.
+Testes verificam exemplos contra a validação real, cobertura das rotas e
+sincronização dos artefatos. Alterações de contrato devem atualizar suas fontes
+e regenerar os arquivos; a documentação não substitui a validação de entrada.
+
 Valores financeiros exigem strings decimais canônicas com exatamente duas casas,
 sem espaços, sinal positivo ou zeros extras à esquerda. BET/WIN/REFUND/ROLLBACK
 exigem valor positivo; LOSS pode ter zero. OPENING só existe com saldo inicial
