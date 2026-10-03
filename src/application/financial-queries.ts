@@ -35,6 +35,8 @@ export class FinancialQueries {
   async ledger(walletId: string, limit = 50, encoded?: string) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new DomainError('INVALID_LIMIT', 'Limit deve estar entre 1 e 100.');
     const wallet = await this.wallet(walletId);
+    // through fixa a versão da primeira página. Novos lançamentos ficam fora desta leitura,
+    // evitando que o histórico cresça durante a paginação; after marca o último visto.
     const cursor = encoded === undefined ? { v: 1 as const, walletId, after: 0, through: wallet.version } : decodeCursor(encoded, walletId);
     if (cursor.through > wallet.version) throw new DomainError('INVALID_CURSOR', 'Cursor aponta para versão futura.');
     const rows = await this.store.ledger(walletId, cursor.after, cursor.through, limit + 1);

@@ -7,6 +7,8 @@ interface LedgerRow { id: string; wallet_id: string; transaction_id: string; dir
 export class MikroFinancialReadStore implements FinancialReadStore {
   constructor(private readonly orm: MikroORM) {}
   async reconciliation(walletId: string) {
+    // Saldo e soma do ledger são lidos no snapshot de uma única instrução SQL.
+    // Duas consultas separadas poderiam observar momentos distintos de uma movimentação.
     const rows = await this.orm.em.fork().execute<{ balance: string; calculated: string; currency: string; entries: string }[]>(
       "select w.balance,w.currency,coalesce(sum(case l.direction when 'CREDIT' then l.amount else -l.amount end),0.00::numeric) as calculated,count(l.id) as entries from wallets w left join wallet_ledger l on l.wallet_id=w.id where w.id=? group by w.id", [walletId]);
     const row = rows[0];

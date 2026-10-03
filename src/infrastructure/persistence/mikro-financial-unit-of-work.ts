@@ -13,6 +13,8 @@ import { InboxMessage } from '../../domain/inbox-message.js';
 import { nullTelemetry } from '../../application/ports/telemetry.js';
 import type { Telemetry } from '../../application/ports/telemetry.js';
 
+// Todos os métodos compartilham o EntityManager da transação. flush() envia SQL,
+// mas não confirma o commit: uma falha posterior ainda desfaz as gravações anteriores.
 class MikroFinancialSession implements FinancialSession {
   constructor(private readonly em: EntityManager, public readonly wallet: Wallet | undefined) {}
 
@@ -28,6 +30,7 @@ class MikroFinancialSession implements FinancialSession {
   }
   async saveTransaction(tx: WagerTransaction, snapshot?: SubmissionResult): Promise<void> {
     const existing = await this.em.findOne(TransactionRecord, { id: tx.id });
+    // Preserva a primeira resposta mesmo se PENDING_REFERENCE virar um estado terminal.
     const data = { id: tx.id, providerId: tx.providerId, externalTransactionId: tx.externalTransactionId, idempotencyKey: tx.idempotencyKey,
       payloadHash: tx.payloadHash, walletId: tx.walletId, playerId: tx.playerId, roundId: tx.roundId, gameId: tx.gameId, kind: tx.kind,
       amount: tx.money.toString(), currency: tx.money.currency, status: tx.status, referenceExternalTransactionId: tx.referenceExternalTransactionId ?? null,
@@ -82,12 +85,16 @@ export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
   async run<T>(walletId: string | undefined, operation: (session: FinancialSession) => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
+        // Uma tentativa nova exige contexto e transação novos. Não podemos continuar
+        // consultando uma transação que o PostgreSQL já abortou por erro SQL.
         return await this.orm.em.fork().transactional(async em => {
           await em.execute("SET LOCAL lock_timeout = '2s'");
           await em.execute("SET LOCAL statement_timeout = '5s'");
           let wallet: Wallet | undefined;
           if (walletId) {
             const lockStarted = performance.now();
+            // SELECT ... FOR UPDATE serializa alterações desta carteira entre processos.
+            // O saldo é lido depois de obter o lock; carteiras diferentes não usam esse lock.
             const record = await em.findOne(WalletRecord, { id: walletId }, { lockMode: LockMode.PESSIMISTIC_WRITE });
             this.telemetry.observe('wallet_lock_wait_seconds', (performance.now() - lockStarted) / 1000);
             if (!record) throw new DomainError('WALLET_NOT_FOUND', 'Carteira inexistente.');
@@ -98,6 +105,8 @@ export class MikroFinancialUnitOfWork implements FinancialUnitOfWork {
       } catch (error) {
         const code = error !== null && typeof error === 'object' && 'code' in error ? String(error.code) : '';
         if (['40P01', '55P03'].includes(code)) this.telemetry.count('lock_conflicts_total', { code });
+        // Até três tentativas: deadlock, serialização, timeout de lock e unicidade.
+        // Uma corrida pela key pode virar replay/conflito ao reler após o rollback.
         if (attempt >= 2 || !['40P01', '40001', '55P03', '23505'].includes(code)) throw error;
         this.telemetry.count('database_retries_total', { code });
         await Bun.sleep(20 * 2 ** attempt);

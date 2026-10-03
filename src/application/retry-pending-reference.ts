@@ -17,6 +17,8 @@ export class RetryPendingReference {
   }
   async execute(transactionId: string, walletId: string, now = new Date()): Promise<boolean> {
     const outcome = await this.uow.run(walletId, async session => {
+      // A busca do worker é apenas uma lista de candidatos. Sob o lock da carteira,
+      // revalidamos estado e prazo para dois workers não resolverem a mesma pendência.
       const stored = await session.transactionById(transactionId);
       if (!stored || stored.transaction.walletId !== walletId || stored.transaction.status !== 'PENDING_REFERENCE' || (stored.nextAttemptAt && stored.nextAttemptAt > now)) return undefined;
       const tx = stored.transaction;
@@ -26,9 +28,11 @@ export class RetryPendingReference {
       const context = { correlationId: `reference:${tx.id}`, causationId: tx.id };
       const incompatible = reference && referenceFailure(tx, reference.transaction) === 'REFERENCE_MISMATCH';
       if (!expired && (reference?.transaction.isTerminal() || incompatible)) {
+        // Limpa a agenda antes da mudança terminal: o banco proíbe alterar a linha depois.
         await session.scheduleReference(tx.id, attempts, undefined);
         await applyWager(session, tx, context);
       } else if (expired || attempts >= this.policy.maxAttempts) {
+        // A espera é limitada; a rejeição e seu evento são confirmados juntos, sem ledger.
         tx.reject('REFERENCE_NOT_FOUND', now);
         await session.scheduleReference(tx.id, attempts, undefined);
         await session.saveTransaction(tx);

@@ -12,6 +12,8 @@ import type { WagerInput, InboxInput } from './process-wager.js';
 import type { EventContext } from '../domain/events/integration-event.js';
 import type { SubmissionResult } from './transaction-result.js';
 
+// Auditoria de falha permanente em uma transação nova, depois do rollback financeiro.
+// Se o banco também impedir esta gravação, o consumidor não deve confirmar a mensagem.
 export class FailWager {
   constructor(private readonly uow: FinancialUnitOfWork, private readonly telemetry: Telemetry) {}
   async execute(input: WagerInput, key: string, context: EventContext, transport: InboxInput): Promise<SubmissionResult> {
@@ -22,6 +24,7 @@ export class FailWager {
       const replay = await resolveIdempotency(session, key, hash, input.providerId, input.externalTransactionId);
       const previous = await session.transactionByKey(key);
       let result = replay;
+      // Uma falha tardia do transporte não pode substituir um resultado terminal já válido.
       if (!previous?.transaction.isTerminal()) {
         const tx = previous?.transaction ?? WagerTransaction.create({ ...input, id: crypto.randomUUID(), money: Money.from(input.money), idempotencyKey: key, payloadHash: hash });
         tx.fail('INFRASTRUCTURE_PERMANENT_FAILURE');
