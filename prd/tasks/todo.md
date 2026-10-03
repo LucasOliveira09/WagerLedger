@@ -221,7 +221,8 @@ Marco: operações e consultas fechadas, inclusive referências e reconciliaçã
 
 ## T24 — Publicar outbox com múltiplos publishers
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: dois publishers com SKIP LOCKED confirmaram oito eventos na fila separada, com IDs iguais aos persistidos; falha de destino manteve evento pendente com tentativa/agendamento; envio real limitado por AbortSignal de cinco segundos.
 - Dependências: T11, T14, T03.
 - Aceite: Destino de eventos separado; SKIP LOCKED evita disputa; eventId estável e retry persistente; timeout impede transação sem limite.
 - Verificação: bun run test:integration -- tests/integration/outbox-publishers.test.ts; dois publishers sobre a mesma tabela.
