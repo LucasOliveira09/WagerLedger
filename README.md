@@ -15,11 +15,13 @@ e consistência entre o saldo das carteiras e um ledger auditável.
 ## Stack prevista
 
 Bun 1.x, TypeScript em modo estrito, NestJS, PostgreSQL, AWS SQS via
-LocalStack ou MiniStack e Docker Compose. O ORM será definido entre
-MikroORM e TypeORM, conforme os requisitos do desafio.
+LocalStack ou MiniStack e Docker Compose. A proposta usa MikroORM; as versões
+e a compatibilidade serão validadas no bootstrap.
 
 ## Estado atual
 
-Repositório inicializado. A aplicação ainda não foi implementada.
+Repositório inicializado e requisitos analisados. A aplicação ainda não foi implementada.
 As instruções de instalação, execução e testes serão adicionadas conforme
 os respectivos comandos estiverem disponíveis.
+
+A proposta técnica, suas decisões e limitações estão em [ARCHITECTURE.md](ARCHITECTURE.md).
