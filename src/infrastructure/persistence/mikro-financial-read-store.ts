@@ -6,6 +6,12 @@ import { TransactionRecord, rehydrateTransaction } from './transaction-mapping.j
 interface LedgerRow { id: string; wallet_id: string; transaction_id: string; direction: string; amount: string; currency: string; balance_before: string; balance_after: string; sequence: number; created_at: Date }
 export class MikroFinancialReadStore implements FinancialReadStore {
   constructor(private readonly orm: MikroORM) {}
+  async reconciliation(walletId: string) {
+    const rows = await this.orm.em.fork().execute<{ balance: string; calculated: string; currency: string; entries: string }[]>(
+      "select w.balance,w.currency,coalesce(sum(case l.direction when 'CREDIT' then l.amount else -l.amount end),0.00::numeric) as calculated,count(l.id) as entries from wallets w left join wallet_ledger l on l.wallet_id=w.id where w.id=? group by w.id", [walletId]);
+    const row = rows[0];
+    return row ? { storedBalance: { amount: row.balance, currency: row.currency }, calculatedBalance: { amount: row.calculated, currency: row.currency }, checkedEntries: Number(row.entries) } : undefined;
+  }
   async wallet(id: string) {
     const row = await this.orm.em.fork().findOne(WalletRecord, { id });
     return row ? { id: row.id, playerId: row.playerId, balance: { amount: row.balance, currency: row.currency }, version: row.version } : undefined;
