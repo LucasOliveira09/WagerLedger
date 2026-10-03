@@ -10,7 +10,15 @@ async function snapshot(apiUrl: string, publisherUrl: string) {
   return { api, publisher };
 }
 export async function startMonitor(apiUrl: string, publisherUrl: string) {
-  const before = await snapshot(apiUrl, publisherUrl); const started = performance.now();
+  let before = await snapshot(apiUrl, publisherUrl);
+  const deadline = performance.now() + 5000;
+  // O publisher atualiza o gauge antes de publicar: a outbox drenada pode ainda mostrar lag do aquecimento.
+  while (metricTotal(before.publisher, 'outbox_lag_seconds') > 0) {
+    if (performance.now() >= deadline) throw new Error('Lag da preparação não zerou antes da medição.');
+    await Bun.sleep(100);
+    before = await snapshot(apiUrl, publisherUrl);
+  }
+  const started = performance.now();
   const lagSamples: Array<{ elapsedMs: number; seconds: number }> = [];
   let stopped = false; let failures = 0; let last = before;
   const record = () => lagSamples.push({ elapsedMs: performance.now() - started, seconds: metricTotal(last.publisher, 'outbox_lag_seconds') });

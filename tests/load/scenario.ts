@@ -2,7 +2,7 @@ import { Money } from '../../src/domain/money.js';
 import { ReconcileWallet } from '../../src/application/reconcile-wallet.js';
 import { MikroFinancialReadStore } from '../../src/infrastructure/persistence/mikro-financial-read-store.js';
 import { nullTelemetry } from '../../src/application/ports/telemetry.js';
-import { createLoadEnvironment, drainOutbox } from './environment.js';
+import { auditOutbox, createLoadEnvironment, drainOutbox } from './environment.js';
 import type { LoadEnvironment } from './environment.js';
 import { runLoad, submitBet } from './generator.js';
 import type { LoadWallet } from './generator.js';
@@ -75,11 +75,12 @@ export async function runScenario(name: ScenarioName, config: LoadConfig, signal
     await environment.api.stop();
     const finalOutbox = await drainOutbox(environment, config.drainSeconds * 1000, signal);
     const financial = await verify(environment, wallets, prefix, workload.successes);
+    const events = await auditOutbox(environment.db.orm);
     const passed = !signal.aborted && workload.requests > 0 && workload.errors === 0 && financial.consistent
-      && financial.responseAgreement && outbox.drained && finalOutbox.drained && metrics.samplingFailures === 0;
+      && financial.responseAgreement && events.consistent && outbox.drained && finalOutbox.drained && metrics.samplingFailures === 0;
     return { name, passed, walletCount: wallets.length, historyEntriesPerWallet: config.historyEntries,
       processes: { generator: process.pid, api: environment.api.pid, publisher: environment.publisher.pid },
-      postgresVersion: environment.postgresVersion, workload, metrics, financial,
+      postgresVersion: environment.postgresVersion, workload, metrics, financial, events,
       outbox: { ...finalOutbox, elapsedMs: outbox.elapsedMs + finalOutbox.elapsedMs } };
   } finally {
     try { await monitor?.stop(); } finally { await environment.close(); }

@@ -1,6 +1,7 @@
 import { createTestDatabase } from '../support/test-database.js';
 import { createTestQueues } from '../support/test-queues.js';
 import { startLoadService } from './services.js';
+import type { createOrm } from '../../src/infrastructure/persistence/orm.js';
 
 export async function createLoadEnvironment() {
   const db = await createTestDatabase();
@@ -21,6 +22,27 @@ export async function createLoadEnvironment() {
   } catch (error) { await close(); throw error; }
 }
 export type LoadEnvironment = Awaited<ReturnType<typeof createLoadEnvironment>>;
+
+export async function auditOutbox(orm: Awaited<ReturnType<typeof createOrm>>) {
+  const [row] = await orm.em.fork().execute<{ expected: string; total: string; invalid: string }[]>(`
+    with expected as (
+      select id, wallet_id from wager_transactions where status='PROCESSED' and kind in ('OPENING','BET')
+    ), audited as (
+      select t.id, count(o.id) as total,
+        count(o.id) filter (where o.event_type='WagerTransactionProcessed') as processed,
+        count(o.id) filter (where o.event_type='WalletBalanceChanged') as changed
+      from expected t left join outbox_messages o on o.payload->'data'->>'transactionId'=t.id::text
+        and o.aggregate_id=t.wallet_id
+      group by t.id
+    )
+    select (select count(*)*2 from expected)::text as expected,
+      (select count(*) from outbox_messages)::text as total,
+      (select count(*) from audited where total<>2 or processed<>1 or changed<>1)::text as invalid`);
+  const expectedEvents = Number(row!.expected); const totalEvents = Number(row!.total);
+  const invalidTransactions = Number(row!.invalid);
+  return { expectedEvents, totalEvents, invalidTransactions,
+    consistent: expectedEvents === totalEvents && invalidTransactions === 0 };
+}
 
 export async function outboxSnapshot(environment: LoadEnvironment) {
   const rows = await environment.db.orm.em.fork().execute<{ total: string; pending: string }[]>(

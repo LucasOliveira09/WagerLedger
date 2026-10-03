@@ -13,5 +13,6 @@ test('experimento separa seed/aquecimento e verifica dinheiro e eventos após ca
   expect(report.financial.wallets.every(wallet => wallet.consistent && wallet.expectedBalance === wallet.storedBalance)).toBe(true);
   // 2 OPENING + 4 seed + 2 warmup + 12 medidas = 20 operações, todas com dois eventos.
   expect(report.outbox.totalEvents).toBe(40); expect(report.outbox.pendingEvents).toBe(0);
+  expect(report.events).toMatchObject({ expectedEvents: 40, totalEvents: 40, invalidTransactions: 0, consistent: true });
   expect(new Set(Object.values(report.processes)).size).toBe(3);
 }, 30000);
