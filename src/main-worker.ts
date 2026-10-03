@@ -27,14 +27,14 @@ export async function bootstrapWorkers(options: WorkerOptions = {}) {
   try {
     const getQueue = async (name: string) => (await client.send(new GetQueueUrlCommand({ QueueName: name }), { abortSignal: AbortSignal.timeout(5000) })).QueueUrl!;
     const urls = options.queueUrls ?? { wagers: await getQueue('wager-transactions.fifo'), dlq: await getQueue('wager-transactions-dlq.fifo'), events: await getQueue('wager-events.fifo') };
-    const uow = new MikroFinancialUnitOfWork(orm);
+    const uow = new MikroFinancialUnitOfWork(orm, telemetry);
     const workers = roles.map(role => {
-      if (role === 'publisher') return new OutboxPublisher(orm, new SqsEventPublisher(client, urls.events), options.onPublished, options.beforePublish);
-      if (role === 'reference') return new ReferenceWorker(orm, new RetryPendingReference(uow));
-      return new WagerConsumer(client, new ProcessWager(uow), { queueUrl: urls.wagers, dlqUrl: urls.dlq,
+      if (role === 'publisher') return new OutboxPublisher(orm, new SqsEventPublisher(client, urls.events), options.onPublished, options.beforePublish, telemetry);
+      if (role === 'reference') return new ReferenceWorker(orm, new RetryPendingReference(uow, undefined, telemetry));
+      return new WagerConsumer(client, new ProcessWager(uow, telemetry), { queueUrl: urls.wagers, dlqUrl: urls.dlq,
         ...(options.waitTimeSeconds !== undefined ? { waitTimeSeconds: options.waitTimeSeconds } : {}),
         ...(options.visibilitySeconds !== undefined ? { visibilitySeconds: options.visibilitySeconds } : {}),
-        ...(options.onCommitted ? { onCommitted: options.onCommitted } : {}) });
+        ...(options.onCommitted ? { onCommitted: options.onCommitted } : {}) }, telemetry);
     });
     const lifecycle = new WorkerLifecycle(workers);
     const stop = () => lifecycle.requestStop();

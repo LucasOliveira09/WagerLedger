@@ -21,9 +21,9 @@ export class AppModule {
       providers: [
         { provide: ReconcileWallet, useFactory: (orm: MikroORM) => new ReconcileWallet(new MikroFinancialReadStore(orm), telemetry), inject: [MikroORM] },
         { provide: FinancialQueries, useFactory: (orm: MikroORM) => new FinancialQueries(new MikroFinancialReadStore(orm)), inject: [MikroORM] },
-        { provide: MikroFinancialUnitOfWork, useFactory: (orm: MikroORM) => new MikroFinancialUnitOfWork(orm), inject: [MikroORM] },
+        { provide: MikroFinancialUnitOfWork, useFactory: (orm: MikroORM) => new MikroFinancialUnitOfWork(orm, telemetry), inject: [MikroORM] },
         { provide: OpenWallet, useFactory: (uow: MikroFinancialUnitOfWork) => new OpenWallet(uow), inject: [MikroFinancialUnitOfWork] },
-        { provide: ProcessWager, useFactory: (uow: MikroFinancialUnitOfWork) => new ProcessWager(uow), inject: [MikroFinancialUnitOfWork] },
+        { provide: ProcessWager, useFactory: (uow: MikroFinancialUnitOfWork) => new ProcessWager(uow, telemetry), inject: [MikroFinancialUnitOfWork] },
       ],
     };
   }
