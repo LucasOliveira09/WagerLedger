@@ -109,7 +109,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T12 — Criar carteira com abertura auditável
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: criação via HTTP real retornou 201, duplicata 409 e inválidos 400; crédito inicial gerou um ledger e dois eventos atômicos; saldo zero não gera abertura e version inicia em 1.
 - Dependências: T09, T11.
 - Aceite: POST cria wallet/OPENING/CREDIT/outbox atomicamente quando saldo positivo; zero não gera OPENING; wallet nasce na version 1 e duplicata é conflito.
 - Verificação: bun run test:integration -- tests/integration/open-wallet.test.ts; chamada HTTP real.
