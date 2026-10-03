@@ -12,6 +12,7 @@ export function ormOptions(clientUrl = process.env.DATABASE_URL ?? localDatabase
     clientUrl, entities: [WalletRecord, TransactionRecord], extensions: [Migrator],
     migrations: { migrationsList: [Migration001, Migration002], snapshot: false },
     pool: { min: 0, max: 10 },
+    driverOptions: { connectionTimeoutMillis: 2000 },
   });
 }
 export function createOrm(clientUrl = process.env.DATABASE_URL ?? localDatabaseUrl) { return MikroORM.init(ormOptions(clientUrl)); }
