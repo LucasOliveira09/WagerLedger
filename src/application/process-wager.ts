@@ -1,5 +1,7 @@
 import { Money } from '../domain/money.js';
 import { WagerTransaction } from '../domain/wager-transaction.js';
+import { InboxMessage } from '../domain/inbox-message.js';
+import { DomainError } from '../domain/domain-error.js';
 import { payloadHash } from './canonical-payload.js';
 import { resolveIdempotency } from './idempotency.js';
 import type { MoneyProps } from '../domain/money.js';
@@ -14,15 +16,22 @@ export interface WagerInput {
   roundId: string; gameId: string; kind: Exclude<WagerKind, 'OPENING'>; money: MoneyProps;
   referenceExternalTransactionId?: string;
 }
+export interface InboxInput { messageId: string; consumerName: string; payloadHash: string }
 export class ProcessWager {
   constructor(private readonly uow: FinancialUnitOfWork) {}
-  async execute(input: WagerInput, key: string, context: EventContext): Promise<SubmissionResult> {
+  async execute(input: WagerInput, key: string, context: EventContext, transport?: InboxInput): Promise<SubmissionResult> {
     const money = Money.from(input.money); const hash = payloadHash(input);
     return this.uow.run(input.walletId, async session => {
+      const inbox = transport ? await session.inbox(transport.messageId, transport.consumerName) : undefined;
+      if (inbox && (!inbox.matchesPayload(transport!.payloadHash) || !inbox.isProcessed())) throw new DomainError('INBOX_CONFLICT', 'Identidade de mensagem reutilizada com conteúdo ou estado divergente.');
       const replay = await resolveIdempotency(session, key, hash, input.providerId, input.externalTransactionId);
-      if (replay) return replay;
-      const tx = WagerTransaction.create({ ...input, id: crypto.randomUUID(), money, idempotencyKey: key, payloadHash: hash });
-      return applyWager(session, tx, context);
+      if (inbox && !replay) throw new DomainError('INBOX_CONFLICT', 'Mensagem confirmada sem operação correspondente.');
+      const result = replay ?? await applyWager(session, WagerTransaction.create({ ...input, id: crypto.randomUUID(), money, idempotencyKey: key, payloadHash: hash }), context);
+      if (transport && !inbox) {
+        const received = InboxMessage.receive({ ...transport, receivedAt: new Date() });
+        received.markProcessed(new Date()); await session.saveInbox(received);
+      }
+      return result;
     });
   }
 }
