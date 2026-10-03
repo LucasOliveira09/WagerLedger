@@ -4,6 +4,11 @@ import type { FinancialSession, FinancialUnitOfWork } from '../../application/po
 import type { Wallet } from '../../domain/wallet.js';
 import { DomainError } from '../../domain/domain-error.js';
 import { WalletRecord, rehydrateWallet } from './wallet-mapping.js';
+import { TransactionRecord } from './transaction-mapping.js';
+import type { WagerTransaction } from '../../domain/wager-transaction.js';
+import type { WalletLedgerEntry } from '../../domain/wallet-ledger-entry.js';
+import type { OutboxMessage } from '../../domain/outbox-message.js';
+import type { SubmissionResult } from '../../application/transaction-result.js';
 
 class MikroFinancialSession implements FinancialSession {
   constructor(private readonly em: EntityManager, public readonly wallet: Wallet | undefined) {}
@@ -17,6 +22,25 @@ class MikroFinancialSession implements FinancialSession {
     const record = await this.em.findOneOrFail(WalletRecord, { id: wallet.id });
     this.em.assign(record, { balance: wallet.balance.toString(), version: wallet.version, updatedAt: wallet.updatedAt });
     await this.em.flush();
+  }
+  async saveTransaction(tx: WagerTransaction, snapshot?: SubmissionResult): Promise<void> {
+    const existing = await this.em.findOne(TransactionRecord, { id: tx.id });
+    const data = { id: tx.id, providerId: tx.providerId, externalTransactionId: tx.externalTransactionId, idempotencyKey: tx.idempotencyKey,
+      payloadHash: tx.payloadHash, walletId: tx.walletId, playerId: tx.playerId, roundId: tx.roundId, gameId: tx.gameId, kind: tx.kind,
+      amount: tx.money.toString(), currency: tx.money.currency, status: tx.status, referenceExternalTransactionId: tx.referenceExternalTransactionId ?? null,
+      referenceTransactionId: tx.referenceTransactionId ?? null, failureCode: tx.failureCode ?? null, processedAt: tx.processedAt ?? null,
+      createdAt: tx.createdAt, responseSnapshot: existing?.responseSnapshot ?? snapshot ?? null,
+      referenceAttempts: existing?.referenceAttempts ?? 0, nextAttemptAt: existing?.nextAttemptAt ?? null };
+    if (existing) this.em.assign(existing, data); else this.em.persist(this.em.create(TransactionRecord, data));
+    await this.em.flush();
+  }
+  async appendLedger(entry: WalletLedgerEntry): Promise<void> {
+    await this.em.execute('insert into wallet_ledger(id,wallet_id,transaction_id,currency,direction,amount,balance_before,balance_after,sequence,created_at) values(?,?,?,?,?,?,?,?,?,?)',
+      [entry.id, entry.walletId, entry.transactionId, entry.money.currency, entry.direction, entry.money.toString(), entry.balanceBefore.toString(), entry.balanceAfter.toString(), entry.sequence, entry.createdAt]);
+  }
+  async appendOutbox(messages: readonly OutboxMessage[]): Promise<void> {
+    for (const message of messages) await this.em.execute('insert into outbox_messages(id,aggregate_id,event_type,payload,occurred_at,attempts) values(?,?,?,?,?,?)',
+      [message.id, message.aggregateId, message.eventType, JSON.stringify(message.payload), message.occurredAt, message.attempts]);
   }
 }
 
