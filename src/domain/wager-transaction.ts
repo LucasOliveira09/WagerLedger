@@ -14,6 +14,7 @@ export interface WagerState extends CreateWagerProps {
   status: WagerStatus; referenceTransactionId?: string; failureCode?: FailureCode; processedAt?: Date;
 }
 
+/** Operação de negócio: pode aguardar uma referência, mas seu resultado terminal não muda. */
 export class WagerTransaction {
   private _status: WagerStatus;
   private _referenceTransactionId: string | undefined;
@@ -30,6 +31,7 @@ export class WagerTransaction {
   }
 
   static create(props: CreateWagerProps): WagerTransaction {
+    // OPENING audita o saldo inicial. O namespace reservado impede um provedor de forjá-lo.
     const provider = props.providerId;
     if (provider.length === 0 || provider.length > 100 || /[\u0000-\u001f]/.test(provider) || (props.kind === 'OPENING' ? provider !== '__internal__' : provider.startsWith('__'))) throw new DomainError('INVALID_PROVIDER', 'Identidade de provedor inválida ou reservada.');
     if ((props.kind === 'REFUND' || props.kind === 'ROLLBACK') && !props.referenceExternalTransactionId) throw new DomainError('INVALID_REFERENCE', 'Reversão exige referência externa.');
@@ -67,6 +69,8 @@ export class WagerTransaction {
   requiresReference(): boolean { return this.kind === 'REFUND' || this.kind === 'ROLLBACK'; }
   matchesPayload(hash: string): boolean { return this.payloadHash === hash; }
 
+  // ROLLBACK desfaz o efeito original: BET vira crédito; WIN e REFUND viram débito.
+  // A compatibilidade e o valor integral da referência são conferidos em reference-rules.
   ledgerDirectionFor(reference?: WagerTransaction): LedgerDirection {
     if (this.kind === 'LOSS') throw new DomainError('INVALID_LEDGER', 'LOSS não gera lançamento.');
     if (this.kind === 'ROLLBACK') {
@@ -75,6 +79,7 @@ export class WagerTransaction {
     }
     return this.kind === 'BET' ? 'DEBIT' : 'CREDIT';
   }
+  // A espera pode ser resolvida posteriormente; PROCESSED, REJECTED e FAILED são definitivos.
   private assertMutable(): void {
     if (this.isTerminal()) throw new DomainError('INVALID_TRANSACTION_STATE', 'Estado terminal não pode ser alterado.');
   }

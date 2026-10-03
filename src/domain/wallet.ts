@@ -9,6 +9,7 @@ export interface WalletState {
 }
 export interface MovementContext { id: string; transactionId: string; at?: Date }
 
+/** Agregado que controla saldo e versão; o bloqueio entre processos pertence à persistência. */
 export class Wallet {
   public readonly id: string;
   public readonly playerId: string;
@@ -41,9 +42,12 @@ export class Wallet {
   private move(direction: LedgerDirection, money: Money, context: MovementContext): WalletLedgerEntry {
     if (money.currency !== this.currency) throw new DomainError('CURRENCY_MISMATCH', 'Moeda incompatível com a carteira.');
     if (!money.isPositive()) throw new DomainError('INVALID_AMOUNT', 'Movimentações exigem valor positivo.');
+    // Valida o novo saldo antes de alterar o objeto: uma aposta rejeitada não consome versão.
     const balanceAfter = direction === 'DEBIT' ? this.balance.subtract(money) : this.balance.add(money);
     if (balanceAfter.isNegative()) throw new DomainError('INSUFFICIENT_FUNDS', 'Saldo insuficiente.');
     const at = context.at ?? new Date();
+    // A mesma movimentação produz saldo, versão e lançamento; o caso de uso persiste os três
+    // na mesma transação SQL. Retornar o lançamento não o grava automaticamente no banco.
     const entry = WalletLedgerEntry.create({ id: context.id, transactionId: context.transactionId, walletId: this.id, direction, money, balanceBefore: this.balance, balanceAfter, sequence: this.version + 1, createdAt: at });
     this._balance = balanceAfter; this._version++; this.updateTimestamp = at.getTime();
     return entry;

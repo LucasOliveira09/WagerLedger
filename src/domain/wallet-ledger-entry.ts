@@ -7,6 +7,7 @@ export interface LedgerEntryState {
   money: Money; balanceBefore: Money; balanceAfter: Money; sequence: number; createdAt: Date;
 }
 
+/** Registro imutável de uma movimentação; correções exigem um novo lançamento compensatório. */
 export class WalletLedgerEntry {
   public readonly id: string;
   public readonly walletId: string;
@@ -36,6 +37,7 @@ export class WalletLedgerEntry {
 
   static rehydrate(state: LedgerEntryState): WalletLedgerEntry { return new WalletLedgerEntry(state); }
   get createdAt(): Date { return new Date(this.timestamp); }
+  // Confere a equação local do lançamento, não a soma de todo o histórico da carteira.
   isBalanced(): boolean {
     const expected = this.direction === 'DEBIT' ? this.balanceBefore.subtract(this.money) : this.balanceBefore.add(this.money);
     return expected.equals(this.balanceAfter);
