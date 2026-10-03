@@ -244,5 +244,6 @@ meta de throughput comprovada.
 - [Guia do código e da estrutura](docs/GUIA_DO_CODIGO.md).
 - [Fluxos financeiros explicados passo a passo](docs/FLUXOS_FINANCEIROS.md).
 - [Requisitos da vaga e evidências no projeto](docs/REQUISITOS_E_EVIDENCIAS.md).
+- [Códigos de rejeição e orientação de reenvio](docs/FAILURE_CODES.md).
 - [PRD autoral](prd/README.md).
 - [Tarefas e evidências](prd/tasks/todo.md).

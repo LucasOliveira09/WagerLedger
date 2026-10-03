@@ -58,6 +58,9 @@ sem movimentação financeira. Falhas transitórias provocam rollback e retry
 limitado com contexto novo. Violações de unicidade concorrentes exigem rollback
 e leitura da operação vencedora; não se continua uma transação SQL abortada.
 
+A [taxonomia de códigos](docs/FAILURE_CODES.md) documenta as condições de rejeição,
+a distinção de FAILED e a orientação de consulta, correção e reenvio ao provedor.
+
 HTTP, SQS e reprocessamento de referências usam a mesma ordem de locks:
 wallet antes das transações financeiras associadas. Workers de referências
 descobrem candidatos sem manter locks financeiros em ordem inversa.
