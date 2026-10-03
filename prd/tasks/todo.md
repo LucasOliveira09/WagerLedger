@@ -46,7 +46,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T05 — Implementar Wallet e ledger
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: 17 testes unitários cumulativos passaram; movimento retorna ledger balanceado; débito insuficiente e moeda divergente preservam saldo/version.
 - Dependências: T04.
 - Aceite: Factories/rehydrate; version e saldo preservam invariantes; ledger imutável valida direção e aritmética.
 - Verificação: bun run test:unit -- tests/unit/wallet.test.ts tests/unit/wallet-ledger-entry.test.ts.
