@@ -165,7 +165,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T18 — Persistir referências fora de ordem
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: REFUND antes de BET retorna 202 e grava pendência/evento sem ledger; replay mantém saldo/status originais após chegada da referência; referência rejeitada gera 422 REFERENCE_NOT_PROCESSED. Resolução agendada segue em T19.
 - Dependências: T17.
 - Aceite: Referência ausente produz PENDING_REFERENCE/outbox sem dinheiro; reprocessar usa operação original; referência terminal inválida tem resposta distinta.
 - Verificação: bun run test:integration -- tests/integration/pending-reference.test.ts.
