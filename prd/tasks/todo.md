@@ -147,7 +147,8 @@ Marco: primeiro fluxo financeiro completo, replay e corrida de saldo comprovados
 
 ## T16 — Processar WIN e LOSS
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: WIN com referência credita; LOSS zero persiste sem ledger/versão/evento de saldo; moeda e rodada divergentes rejeitam sem efeito; regras puras e PostgreSQL testados.
 - Dependências: T14.
 - Aceite: WIN credita; LOSS não gera ledger/version/evento de saldo; identidade/moeda e referência opcional são verificadas.
 - Verificação: bun run test:unit -- tests/unit/wager-rules.test.ts; bun run test:integration -- tests/integration/win-loss.test.ts.
