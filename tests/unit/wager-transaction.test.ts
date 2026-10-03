@@ -27,3 +27,9 @@ test('referência pendente pode ser resolvida e mantém identidade', () => {
   expect(tx.referenceTransactionId).toBe('original-id');
   expect(tx.isTerminal()).toBe(true);
 });
+test('identidade de provedor é validada no domínio e OPENING reserva identidade interna', () => {
+  const input = { id: 'id', providerId: 'p', externalTransactionId: 'e', idempotencyKey: 'k', payloadHash: 'h', walletId: 'w', playerId: 'player', roundId: 'r', gameId: 'g', kind: 'BET' as const, money: Money.from({ amount: '1.00', currency: 'BRL' }) };
+  for (const providerId of ['', '__internal__', 'x'.repeat(101), 'bad\nprovider']) expect(() => WagerTransaction.create({ ...input, providerId })).toThrow();
+  expect(() => WagerTransaction.create({ ...input, kind: 'OPENING' })).toThrow();
+  expect(() => WagerTransaction.create({ ...input, kind: 'OPENING', providerId: '__internal__' })).not.toThrow();
+});

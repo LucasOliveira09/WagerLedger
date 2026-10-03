@@ -30,6 +30,8 @@ export class WagerTransaction {
   }
 
   static create(props: CreateWagerProps): WagerTransaction {
+    const provider = props.providerId;
+    if (provider.length === 0 || provider.length > 100 || /[\u0000-\u001f]/.test(provider) || (props.kind === 'OPENING' ? provider !== '__internal__' : provider.startsWith('__'))) throw new DomainError('INVALID_PROVIDER', 'Identidade de provedor inválida ou reservada.');
     if ((props.kind === 'REFUND' || props.kind === 'ROLLBACK') && !props.referenceExternalTransactionId) throw new DomainError('INVALID_REFERENCE', 'Reversão exige referência externa.');
     if (props.money.isNegative() || (props.kind !== 'LOSS' && !props.money.isPositive())) throw new DomainError('INVALID_AMOUNT', 'Operação financeira exige valor positivo.');
     return new WagerTransaction({ ...props, status: 'PENDING' });
