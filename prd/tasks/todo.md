@@ -241,7 +241,8 @@ Marco: entrega por fila, publicação e recuperação operacional prontas para t
 
 ## T26 — Provar morte após commit antes do ack
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: subprocesso realmente morto com mensagem ainda invisível após commit; segundo PID recebeu redelivery; permaneceram uma inbox, dois ledgers (abertura/aposta), quatro eventos SQL e saldo reconciliado 80.00.
 - Dependências: T25.
 - Aceite: Processo realmente morto no intervalo crítico; redelivery não repete débito/eventos SQL; saldo final reconciliado após reinício.
 - Verificação: bun run test:recovery -- tests/recovery/commit-before-ack.test.ts.
