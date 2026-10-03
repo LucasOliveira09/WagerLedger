@@ -82,7 +82,8 @@ Marco: ambiente e compatibilidade provados antes do processamento financeiro.
 
 ## T09 — Isolar unidades de trabalho e locks
 
-- [ ] Concluída e verificada.
+- [x] Concluída e verificada.
+- Evidência: escrita real seguida de falha injetada foi revertida; execuções usam instâncias de domínio distintas, contexto ORM novo e lock de linha por wallet; retry limitado a três tentativas.
 - Dependências: T08.
 - Aceite: Contexto novo por execução/retry; lock por wallet e ordem de aquisição única; falha injetada provoca rollback completo.
 - Verificação: bun run test:integration -- tests/integration/unit-of-work.test.ts.
