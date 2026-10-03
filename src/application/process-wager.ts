@@ -39,7 +39,8 @@ export class ProcessWager {
         const received = InboxMessage.receive({ ...transport, receivedAt: new Date() });
         received.markProcessed(new Date()); await session.saveInbox(received);
       }
-      return result;
+      const currentStatus = replay ? (await session.transactionByKey(key))!.transaction.status : result.body.status;
+      return { ...result, currentStatus };
     });
     this.telemetry.count(result.body.idempotentReplay ? 'duplicates_total' : 'transactions_total', result.body.idempotentReplay ? { source: transport ? 'sqs' : 'http' } : { status: result.body.status });
     this.telemetry.log('info', result.body.idempotentReplay ? 'wager_replayed' : 'wager_committed', { correlationId: context.correlationId, ...(transport ? { messageId: transport.messageId } : {}), transactionId: result.body.transactionId, walletId: input.walletId, providerId: input.providerId });

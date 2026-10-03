@@ -30,8 +30,10 @@ test('poison e retry esgotado chegam à DLQ; falha no envio não confirma origem
     await retrying.handle((await receive(queues.wagers))!);
     const dead = (await receive(queues.dlq))!;
     expect(dead.MessageAttributes!.failureCode!.StringValue).toBe('RETRY_EXHAUSTED');
-    expect(await db.orm.em.fork().execute('select * from inbox_messages')).toHaveLength(1);
-    expect((await db.orm.em.fork().execute<{ status: string }[]>("select status from wager_transactions where external_transaction_id='temporary'"))[0]!.status).toBe('FAILED');
+    expect(await db.orm.em.fork().execute('select * from inbox_messages')).toHaveLength(0);
+    expect(await db.orm.em.fork().execute("select id from wager_transactions where external_transaction_id='temporary'")).toHaveLength(0);
+    await send(dead.Body!, 'redrive-after-recovery'); await consumer.tick();
+    expect((await db.orm.em.fork().execute<{ status: string }[]>("select status from wager_transactions where external_transaction_id='temporary'"))[0]!.status).toBe('PROCESSED');
     await send('also-invalid', 'dlq-down');
     const source = (await receive(queues.wagers))!;
     await expect(new WagerConsumer(queues.client, process, { ...options, dlqUrl: queues.dlq.replace(/[^/]+$/, 'nonexistent.fifo') }).handle(source)).rejects.toThrow();
